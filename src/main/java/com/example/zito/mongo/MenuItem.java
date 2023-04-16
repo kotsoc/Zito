@@ -3,8 +3,8 @@ package com.example.zito.mongo;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-@Document(collection = "Waiter")
-public class Waiter {
+@Document(collection = "menuItem")
+public class MenuItem {
 
     @Id
     Integer id;
@@ -13,7 +13,7 @@ public class Waiter {
 
     String name;
 
-    public Waiter(Integer phoneNumber, String name) {
+    public MenuItem(Integer phoneNumber, String name) {
         this.phoneNumber = phoneNumber;
         this.name = name;
     }

@@ -11,6 +11,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 public class Order {
     @Id
     private String id;
+
     private int orderid;
     private int table;
     private Date order_time;
@@ -18,20 +19,21 @@ public class Order {
     private boolean paid;
 
     @DBRef
-    private Server server;
+    private Waiter waiter;
 
+    @DBRef
     private List<MenuItem> items;
 
     public Order() {
     }
 
-    public Order(int orderid, int table, Date order_time, double total, Server server, List<MenuItem> items,
+    public Order(int orderid, int table, Date order_time, double total, Waiter server, List<MenuItem> items,
             boolean paid) {
         this.orderid = orderid;
         this.table = table;
         this.order_time = order_time;
         this.total = total;
-        this.server = server;
+        this.waiter = server;
         this.items = items;
         this.paid = paid;
     }
@@ -84,12 +86,12 @@ public class Order {
         this.paid = paid;
     }
 
-    public Server getServer() {
-        return server;
+    public Waiter getWaiter() {
+        return waiter;
     }
 
-    public void setServer(Server server) {
-        this.server = server;
+    public void setWaiter(Waiter server) {
+        this.waiter = server;
     }
 
     public List<MenuItem> getItems() {
