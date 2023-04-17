@@ -1,4 +1,4 @@
-package com.example.zito.mongo;
+package com.example.zito.model;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,6 +15,9 @@ public class Table {
     private int number;
     @DBRef
     private List<Order> orders;
+
+    public Table() {
+    }
 
     public Table(int number) {
         this.number = number;

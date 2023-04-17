@@ -1,4 +1,4 @@
-package com.example.zito.mongo;
+package com.example.zito.model;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -7,22 +7,29 @@ import org.springframework.data.mongodb.core.mapping.Document;
 public class Waiter {
 
     @Id
-    Integer id;
+    String id;
 
     Integer phoneNumber;
 
     String name;
+
+    public Waiter() {
+    }
 
     public Waiter(Integer phoneNumber, String name) {
         this.phoneNumber = phoneNumber;
         this.name = name;
     }
 
-    public Integer getId() {
+    public Waiter(String name) {
+        this.name = name;
+    }
+
+    public String getId() {
         return id;
     }
 
-    public void setId(Integer id) {
+    public void setId(String id) {
         this.id = id;
     }
 
