@@ -1,12 +1,7 @@
 package com.example.zito.webControllers;
 
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
-
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.annotation.Id;
+
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,8 +20,8 @@ import com.example.zito.repositories.WaiterRepository;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/v1")
-public class OrderController {
+@RequestMapping("/api/v1/")
+public class TableController {
 
     // private OrderService orderService;
 
@@ -37,31 +32,24 @@ public class OrderController {
     WaiterRepository waiterRepository;
 
     /*
-     * Get all orders for a specific waiter
-     */
-    @GetMapping("/order/{waiterName}")
-    public List<Order> getOrdersByWaiter(@PathVariable("waiterName") String waiterName) {
-        Optional<Waiter> waiter = waiterRepository.findByName(waiterName);
-        return orderRepository.findByWaiter(waiter.get()).stream().sorted(Comparator.comparing(Order::getTable))
-                .collect(Collectors.toList());
-    }
-
-    /*
      * Get all orders for a table
      */
-    @GetMapping("/order/table/{tableId}")
-    public List<Order> getOrdersByTable(@PathVariable("tableId") int tableId) {
-        return orderRepository.findByTable(tableId);
-    }
+    // @GetMapping("/{tableId}/order/")
+    // public List<Order> getOrdersByTable(@PathVariable("tableId") String tableId)
+    // {
+    // Table table = new Table();
+    // table.setId(tableId);
+    // return orderRepository.findByTable(table);
+    // }
 
     /*
      * Create a new order, need to correspond to a valid waiter
      */
-    @PostMapping("/order/{waiterId}")
-    public Order createMyDocument(@PathVariable("waiterId") String waiterId, @Valid @RequestBody Order order) {
+    @PostMapping("/table")
+    public Order createMyDocument(@Valid @RequestBody Order order) {
         if (order.getWaiter() == null) {
-            Waiter waiter = new Waiter();
-            waiter.setId(waiterId);
+            Waiter waiter = new Waiter("testWaiter");
+            waiter.setId("testWaiter");
             waiterRepository.save(waiter);
             order.setWaiter(waiter);
         }

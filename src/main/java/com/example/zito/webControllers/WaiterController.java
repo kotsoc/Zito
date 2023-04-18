@@ -38,7 +38,7 @@ public class WaiterController {
      */
     @GetMapping("/waiter/{waiterName}")
     public Optional<Waiter> getWaiter(@PathVariable("waiterName") String name) {
-        return waiterRepository.findById(name);
+        return waiterRepository.findByName(name);
     }
 
     /*
@@ -54,21 +54,14 @@ public class WaiterController {
         return waiterRepository.save(waiter);
     }
 
-    // @GetMapping("/my-documents/{id}")
-    // public MyDocument getMyDocumentById(@PathVariable("id") String id) {
-    // return myRepository.findById(id).orElse(null);
-    // }
+    @PutMapping("/waiter")
+    public Waiter updateWaiter(@Valid @RequestBody Waiter waiter) {
+        return waiterRepository.save(waiter);
+    }
 
-    // @PutMapping("/my-documents/{id}")
-    // public MyDocument updateMyDocument(@PathVariable("id") String id, @Valid
-    // @RequestBody MyDocument myDocument) {
-    // myDocument.setId(id);
-    // return myRepository.save(myDocument);
-    // }
-
-    // @DeleteMapping("/my-documents/{id}")
-    // public void deleteMyDocumentById(@PathVariable("id") String id) {
-    // myRepository.deleteById(id);
-    // }
+    @DeleteMapping("/waiter/{id}")
+    public void deleteWaiterById(@PathVariable("id") String id) {
+        waiterRepository.deleteById(id);
+    }
 
 }
