@@ -7,6 +7,8 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.annotation.Id;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,7 +27,7 @@ import com.example.zito.repositories.WaiterRepository;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/api/v1/waiter")
 public class WaiterController {
 
     // private OrderService orderService;
@@ -36,30 +38,50 @@ public class WaiterController {
     /*
      * Get all information about a specific waiter
      */
-    @GetMapping("/waiter/{waiterName}")
+    @GetMapping("/{waiterName}")
     public Optional<Waiter> getWaiter(@PathVariable("waiterName") String name) {
         return waiterRepository.findByName(name);
     }
 
-    /*
-     * Get all waiters
+    /**
+     * Get all waiters.
      */
-    @GetMapping("/waiter/all")
-    public List<Waiter> getAllWaiters() {
-        return waiterRepository.findAll();
+    @GetMapping
+    public ResponseEntity<List<Waiter>> getAllWaiters() {
+        List<Waiter> waiters = waiterRepository.findAll();
+        return ResponseEntity.ok(waiters);
     }
 
-    @PostMapping("/waiter")
-    public Waiter createWaiter(@Valid @RequestBody Waiter waiter) {
-        return waiterRepository.save(waiter);
+    /**
+     * Create a new waiter.
+     */
+    @PostMapping
+    public ResponseEntity<Waiter> createWaiter(@Valid @RequestBody Waiter waiter) {
+        Waiter savedWaiter = waiterRepository.save(waiter);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedWaiter);
     }
 
-    @PutMapping("/waiter")
-    public Waiter updateWaiter(@Valid @RequestBody Waiter waiter) {
-        return waiterRepository.save(waiter);
+    /**
+     * Update an existing waiter.
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<Waiter> updateWaiter(@PathVariable(value = "id") String id,
+            @Valid @RequestBody Waiter waiterDetails) {
+        Optional<Waiter> waiter = waiterRepository.findById(id);
+        if (waiter.isPresent()) {
+
+            waiter.get().setName(waiterDetails.getName());
+            waiter.get().setPhoneNumber(waiterDetails.getPhoneNumber());
+
+            final Waiter updatedWaiter = waiterRepository.save(waiter.get());
+
+            return ResponseEntity.ok(updatedWaiter);
+        } else {
+            return ResponseEntity.notFound().build();
+        }
     }
 
-    @DeleteMapping("/waiter/{id}")
+    @DeleteMapping("/{id}")
     public void deleteWaiterById(@PathVariable("id") String id) {
         waiterRepository.deleteById(id);
     }
