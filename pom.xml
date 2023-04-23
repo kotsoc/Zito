@@ -17,6 +17,7 @@
 		<java.version>17</java.version>
 	</properties>
 	<dependencies>
+	<!-- Spring Boot -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-mongodb</artifactId>
@@ -34,6 +35,14 @@
     		<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
 
+	   <dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>2.1.0</version>
+   		</dependency>
+
+		
+		<!--  Testing -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
