@@ -39,8 +39,8 @@ public class WaiterController {
      * Get all information about a specific waiter
      */
     @GetMapping("/{waiterName}")
-    public Optional<Waiter> getWaiter(@PathVariable("waiterName") String name) {
-        return waiterRepository.findByName(name);
+    public ResponseEntity<Waiter> getWaiter(@PathVariable("waiterName") String name) {
+        return ResponseEntity.ok(waiterRepository.findByName(name).get());
     }
 
     /**

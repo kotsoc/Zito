@@ -59,19 +59,15 @@ public class MenuItemController {
     /*
      * Update a menuItem
      */
-    @PutMapping("/{id}")
-    public ResponseEntity<MenuItem> UpdateMenuItems(@PathVariable String id, @RequestBody Valid MenuItem item) {
+    @PutMapping("{id}")
+    public ResponseEntity<MenuItem> UpdateMenuItem(@PathVariable String id, @RequestBody MenuItem item) {
         // Retrieve the MenuItem object with the given id from the database
-        Optional<MenuItem> menuItemOptional = menuItemRepository.findById(id);
-        
-        // If the MenuItem object exists, update its properties and save it to the database
+        Optional<MenuItem> menuItemOptional = menuRepository.findById(id);
+
+        // If the MenuItem object exists, update its properties and save it to the
+        // database
         if (menuItemOptional.isPresent()) {
-            MenuItem menuItem = menuItemOptional.get();
-            menuItem.setName(item.getName());
-            menuItem.setPrice(item.getPrice());
-            menuItem.setDescription(item.getDescription());
-            MenuItem updatedMenuItem = menuItemRepository.save(menuItem);
-            
+            MenuItem updatedMenuItem = menuRepository.save(item);
             return ResponseEntity.ok(updatedMenuItem);
         } else {
             // If the MenuItem object does not exist, return a 404 Not Found status
