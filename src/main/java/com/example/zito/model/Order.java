@@ -19,7 +19,7 @@ public class Order {
     private boolean paid;
 
     @DBRef
-    private Waiter waiter;
+    private RestaurantUser waiter;
 
     // @DBRef
     private List<MenuItem> items;
@@ -27,7 +27,7 @@ public class Order {
     public Order() {
     }
 
-    public Order(int orderid, int table, Date order_time, double total, Waiter server, List<MenuItem> items,
+    public Order(int orderid, int table, Date order_time, double total, RestaurantUser server, List<MenuItem> items,
             boolean paid) {
         this.orderid = orderid;
         this.table = table;
@@ -86,11 +86,11 @@ public class Order {
         this.paid = paid;
     }
 
-    public Waiter getWaiter() {
+    public RestaurantUser getWaiter() {
         return waiter;
     }
 
-    public void setWaiter(Waiter server) {
+    public void setWaiter(RestaurantUser server) {
         this.waiter = server;
     }
 

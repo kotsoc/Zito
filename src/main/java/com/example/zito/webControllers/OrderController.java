@@ -2,11 +2,9 @@ package com.example.zito.webControllers;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,11 +16,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.zito.model.Order;
-import com.example.zito.model.Table;
-import com.example.zito.model.Waiter;
+import com.example.zito.model.RestaurantUser;
 import com.example.zito.repositories.OrderRepository;
 import com.example.zito.repositories.TableRepository;
-import com.example.zito.repositories.WaiterRepository;
+import com.example.zito.repositories.UserRepository;
 
 import jakarta.validation.Valid;
 
@@ -31,10 +28,10 @@ import jakarta.validation.Valid;
 public class OrderController {
 
     private final OrderRepository orderRepository;
-    private final WaiterRepository waiterRepository;
+    private final UserRepository waiterRepository;
     private final TableRepository tableRepository;
 
-    public OrderController(OrderRepository orderRepository, WaiterRepository waiterRepository,
+    public OrderController(OrderRepository orderRepository, UserRepository waiterRepository,
             TableRepository tableRepository) {
         this.orderRepository = orderRepository;
         this.waiterRepository = waiterRepository;
@@ -46,9 +43,9 @@ public class OrderController {
      */
     @GetMapping("/{waiterName}")
     public ResponseEntity<List<Order>> getOrdersByWaiter(@PathVariable("waiterName") String waiterName) {
-        Optional<Waiter> waiter = waiterRepository.findByName(waiterName);
-        if (waiter.isPresent()) {
-            List<Order> orders = orderRepository.findByWaiter(waiter.get()).stream()
+        RestaurantUser waiter = waiterRepository.findByName(waiterName);
+        if (waiter != null) {
+            List<Order> orders = orderRepository.findByWaiter(waiter).stream()
                     .sorted(Comparator.comparing(Order::getTable)).collect(Collectors.toList());
             return ResponseEntity.ok().body(orders);
         } else {
@@ -75,7 +72,9 @@ public class OrderController {
     @PostMapping
     public ResponseEntity<Order> createOrder(@PathVariable("waiterId") String waiterId,
             @Valid @RequestBody Order order) {
-        if (waiterRepository.findById(waiterId).isPresent()) {
+        var waiter = waiterRepository.findById(waiterId);
+        if (waiter.isPresent()) {
+            order.setWaiter(waiter.get());
             return ResponseEntity.status(HttpStatus.CREATED).body(orderRepository.save(order));
         } else {
             return ResponseEntity.badRequest().build();

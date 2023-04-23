@@ -1,14 +1,12 @@
 package com.example.zito.webControllers;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.annotation.Id;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,35 +16,41 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.zito.model.Waiter;
-import com.example.zito.repositories.WaiterRepository;
+import com.example.zito.model.RestaurantUser;
+import com.example.zito.repositories.UserRepository;
 
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/waiter")
 public class WaiterController {
 
-    private final WaiterRepository waiterRepository;
+    private final UserRepository waiterRepository;
 
-    public WaiterController(WaiterRepository waiterRepository) {
+    private final PasswordEncoder passwordEncoder;
+
+    public WaiterController(UserRepository waiterRepository, PasswordEncoder passwordEncoder) {
         this.waiterRepository = waiterRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     /*
      * Get all information about a specific waiter
      */
     @GetMapping("/{waiterName}")
-    public ResponseEntity<Waiter> getWaiter(@PathVariable("waiterName") String name) {
-        return ResponseEntity.ok(waiterRepository.findByName(name).get());
+    public ResponseEntity<RestaurantUser> getWaiter(@PathVariable("waiterName") String name) {
+        return ResponseEntity.ok(waiterRepository.findByName(name));
     }
 
     /**
      * Get all waiters.
      */
     @GetMapping
-    public ResponseEntity<List<Waiter>> getAllWaiters() {
-        List<Waiter> waiters = waiterRepository.findAll();
+    public ResponseEntity<List<RestaurantUser>> getAllWaiters() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        System.out.println("Authori " + auth.getAuthorities().toString());
+        List<RestaurantUser> waiters = waiterRepository.findAll();
         return ResponseEntity.ok(waiters);
     }
 
@@ -54,24 +58,27 @@ public class WaiterController {
      * Create a new waiter.
      */
     @PostMapping
-    public ResponseEntity<Waiter> createWaiter(@Valid @RequestBody Waiter waiter) {
-        Waiter savedWaiter = waiterRepository.save(waiter);
+    public ResponseEntity<RestaurantUser> createWaiter(@Valid @RequestBody RestaurantUser waiter) {
+        RestaurantUser savedWaiter = waiter;
+        waiter.setPassword(passwordEncoder.encode(waiter.getPassword()));
+        waiterRepository.save(waiter);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedWaiter);
     }
 
     /**
      * Update an existing waiter.
      */
-    @PutMapping("/{id}")
-    public ResponseEntity<Waiter> updateWaiter(@PathVariable(value = "id") String id,
-            @Valid @RequestBody Waiter waiterDetails) {
-        Optional<Waiter> waiter = waiterRepository.findById(id);
+    @PutMapping
+    public ResponseEntity<RestaurantUser> updateWaiter(@Valid @RequestBody RestaurantUser waiterDetails) {
+        Optional<RestaurantUser> waiter = waiterRepository.findById(waiterDetails.getId());
         if (waiter.isPresent()) {
-
+            final RestaurantUser updatedWaiter = waiter.get();
             waiter.get().setName(waiterDetails.getName());
             waiter.get().setPhoneNumber(waiterDetails.getPhoneNumber());
+            waiter.get().setPassword(passwordEncoder.encode(waiterDetails.getPassword()));
+            waiter.get().setRoles(waiterDetails.getRoles());
 
-            final Waiter updatedWaiter = waiterRepository.save(waiter.get());
+            waiterRepository.save(waiter.get());
 
             return ResponseEntity.ok(updatedWaiter);
         } else {
@@ -79,6 +86,7 @@ public class WaiterController {
         }
     }
 
+    @RolesAllowed("admin")
     @DeleteMapping("/{id}")
     public void deleteWaiterById(@PathVariable("id") String id) {
         waiterRepository.deleteById(id);
