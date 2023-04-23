@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
@@ -31,16 +30,16 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/v1/order")
 public class OrderController {
 
-    // private OrderService orderService;
+    private final OrderRepository orderRepository;
+    private final WaiterRepository waiterRepository;
+    private final TableRepository tableRepository;
 
-    @Autowired
-    OrderRepository orderRepository;
-
-    @Autowired
-    WaiterRepository waiterRepository;
-
-    @Autowired
-    TableRepository tableRepository;
+    public OrderController(OrderRepository orderRepository, WaiterRepository waiterRepository,
+            TableRepository tableRepository) {
+        this.orderRepository = orderRepository;
+        this.waiterRepository = waiterRepository;
+        this.tableRepository = tableRepository;
+    }
 
     /*
      * Get all orders for a specific waiter

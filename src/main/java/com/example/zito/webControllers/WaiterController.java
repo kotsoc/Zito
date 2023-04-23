@@ -18,10 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.zito.model.Order;
-import com.example.zito.model.Table;
 import com.example.zito.model.Waiter;
-import com.example.zito.repositories.OrderRepository;
 import com.example.zito.repositories.WaiterRepository;
 
 import jakarta.validation.Valid;
@@ -30,10 +27,11 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/v1/waiter")
 public class WaiterController {
 
-    // private OrderService orderService;
+    private final WaiterRepository waiterRepository;
 
-    @Autowired
-    WaiterRepository waiterRepository;
+    public WaiterController(WaiterRepository waiterRepository) {
+        this.waiterRepository = waiterRepository;
+    }
 
     /*
      * Get all information about a specific waiter

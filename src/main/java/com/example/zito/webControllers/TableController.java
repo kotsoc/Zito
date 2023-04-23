@@ -21,7 +21,6 @@ import com.example.zito.model.Table;
 import com.example.zito.model.Waiter;
 import com.example.zito.repositories.OrderRepository;
 import com.example.zito.repositories.TableRepository;
-import com.example.zito.repositories.WaiterRepository;
 
 import jakarta.validation.Valid;
 
@@ -29,24 +28,11 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/v1/table")
 public class TableController {
 
-    // private OrderService orderService;
+    private final TableRepository tableRepository;
 
-    @Autowired
-    TableRepository tableRepository;
-
-    @Autowired
-    WaiterRepository waiterRepository;
-
-    /*
-     * Get all orders for a table
-     */
-    // @GetMapping("/{tableId}/order/")
-    // public List<Order> getOrdersByTable(@PathVariable("tableId") String tableId)
-    // {
-    // Table table = new Table();
-    // table.setId(tableId);
-    // return orderRepository.findByTable(table);
-    // }
+    public TableController(TableRepository tableRepository) {
+        this.tableRepository = tableRepository;
+    }
 
     /*
      * Get all information about a specific waiter
