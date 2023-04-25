@@ -24,13 +24,13 @@ import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/waiter")
-public class WaiterController {
+public class RestaurantUserController {
 
     private final UserRepository waiterRepository;
 
     private final PasswordEncoder passwordEncoder;
 
-    public WaiterController(UserRepository waiterRepository, PasswordEncoder passwordEncoder) {
+    public RestaurantUserController(UserRepository waiterRepository, PasswordEncoder passwordEncoder) {
         this.waiterRepository = waiterRepository;
         this.passwordEncoder = passwordEncoder;
     }
@@ -40,7 +40,7 @@ public class WaiterController {
      */
     @GetMapping("/{waiterName}")
     public ResponseEntity<RestaurantUser> getWaiter(@PathVariable("waiterName") String name) {
-        return ResponseEntity.ok(waiterRepository.findByName(name));
+        return ResponseEntity.ok(waiterRepository.findByUsername(name));
     }
 
     /**
@@ -59,10 +59,12 @@ public class WaiterController {
      */
     @PostMapping
     public ResponseEntity<RestaurantUser> createWaiter(@Valid @RequestBody RestaurantUser waiter) {
-        RestaurantUser savedWaiter = waiter;
-        waiter.setPassword(passwordEncoder.encode(waiter.getPassword()));
-        waiterRepository.save(waiter);
-        return ResponseEntity.status(HttpStatus.CREATED).body(savedWaiter);
+        RestaurantUser newUser = new RestaurantUser();
+        newUser.setUsername(waiter.getUsername());
+        newUser.setPassword(passwordEncoder.encode(waiter.getPassword()));
+        newUser.setPhoneNumber(waiter.getPhoneNumber());
+        waiterRepository.save(newUser);
+        return ResponseEntity.status(HttpStatus.CREATED).body(waiter);
     }
 
     /**
@@ -73,7 +75,7 @@ public class WaiterController {
         Optional<RestaurantUser> waiter = waiterRepository.findById(waiterDetails.getId());
         if (waiter.isPresent()) {
             final RestaurantUser updatedWaiter = waiter.get();
-            waiter.get().setName(waiterDetails.getName());
+            waiter.get().setUsername(waiterDetails.getUsername());
             waiter.get().setPhoneNumber(waiterDetails.getPhoneNumber());
             waiter.get().setPassword(passwordEncoder.encode(waiterDetails.getPassword()));
             waiter.get().setRoles(waiterDetails.getRoles());

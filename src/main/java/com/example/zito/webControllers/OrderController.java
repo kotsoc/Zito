@@ -43,7 +43,7 @@ public class OrderController {
      */
     @GetMapping("/{waiterName}")
     public ResponseEntity<List<Order>> getOrdersByWaiter(@PathVariable("waiterName") String waiterName) {
-        RestaurantUser waiter = waiterRepository.findByName(waiterName);
+        RestaurantUser waiter = waiterRepository.findByUsername(waiterName);
         if (waiter != null) {
             List<Order> orders = orderRepository.findByWaiter(waiter).stream()
                     .sorted(Comparator.comparing(Order::getTable)).collect(Collectors.toList());

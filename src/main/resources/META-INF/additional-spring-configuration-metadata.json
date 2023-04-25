@@ -1,0 +1,12 @@
+{"properties": [
+  {
+    "name": "zito.app.jwtSecret",
+    "type": "java.lang.String",
+    "description": "JWT secret key'"
+  },
+  {
+    "name": "zito.app.jwtExpirationMs",
+    "type": "java.lang.String",
+    "description": "Expiration of JWT toekn in milliseconds'"
+  }
+]} 
