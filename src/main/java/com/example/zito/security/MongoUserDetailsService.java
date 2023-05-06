@@ -3,6 +3,7 @@ package com.example.zito.security;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -14,6 +15,7 @@ import com.example.zito.model.RestaurantUser;
 import com.example.zito.repositories.UserRepository;
 
 @Service
+@Profile("!dev")
 public class MongoUserDetailsService implements UserDetailsService {
     private UserRepository userRepository;
 

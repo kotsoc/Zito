@@ -2,6 +2,7 @@ package com.example.zito.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
@@ -23,6 +24,7 @@ import static org.springframework.security.config.Customizer.withDefaults;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@Profile("!dev")
 public class SecurityConfiguration {
 
     private UserDetailsService userDetailsService;
@@ -55,7 +57,7 @@ public class SecurityConfiguration {
                 .sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers("/resources/**", "/info", "index.html", "/css/*", "/js/*",
-                                "/api/v1/auth/signin", "/swagger-ui/index.htm*")
+                                "/user/signin", "/swagger-ui/*", "/v3/**")
                         .permitAll()
                         .anyRequest().authenticated());
 
