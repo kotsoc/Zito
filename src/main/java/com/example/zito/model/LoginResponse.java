@@ -13,5 +13,5 @@ import lombok.Data;
 public class LoginResponse {
     String jwtToken;
     String username;
-    Collection<SimpleGrantedAuthority> roles;
+    Collection<String> roles;
 }

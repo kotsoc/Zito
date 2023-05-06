@@ -68,7 +68,7 @@ public class AuthenticationController {
                 return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
                                 .body(new LoginResponse(jwtCookie.toString(),
                                                 userDetails.getUsername(),
-                                                (Collection<SimpleGrantedAuthority>) userDetails.getAuthorities()));
+                                                roles));
         }
 
 }

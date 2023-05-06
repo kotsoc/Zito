@@ -1,6 +1,9 @@
 package com.example.zito.security;
 
 import java.util.Date;
+import java.util.List;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,17 +30,6 @@ public class JwtTokenUtil {
     @Value("${zito.app.jwtExpirationMs}")
     private int jwtExpirationMs;
 
-    public String generateJwtToken(Authentication authentication) {
-
-        return Jwts.builder()
-                .setSubject(authentication.getPrincipal().toString())
-                .setIssuedAt(new Date())
-                .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
-                .signWith(SignatureAlgorithm.HS256, jwtSecret)
-                .claim("scopes", authentication.getAuthorities())
-                .compact();
-    }
-
     public String getUserNameFromJwtToken(String token) {
         return Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(token).getBody().getSubject();
     }
@@ -61,19 +53,21 @@ public class JwtTokenUtil {
         return false;
     }
 
-    public ResponseCookie generateJwtCookie(UserDetails userPrincipal) {
-        String jwt = generateTokenFromUsername(userPrincipal.getUsername());
+    public ResponseCookie generateJwtCookie(UserDetails userDetails) {
+        String jwt = generateTokenFromUsername(userDetails.getUsername(),
+                userDetails.getAuthorities().stream().map(item -> item.getAuthority()).collect(Collectors.toList()));
         ResponseCookie cookie = ResponseCookie.from("jwtCookie", jwt).path("/api").maxAge(24 * 60 * 60).httpOnly(true)
                 .build();
         return cookie;
     }
 
-    public String generateTokenFromUsername(String username) {
+    public String generateTokenFromUsername(String username, List<String> authorities) {
         return Jwts.builder()
                 .setSubject(username)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
                 .signWith(SignatureAlgorithm.HS512, jwtSecret)
+                .claim("roles", authorities)
                 .compact();
     }
 }
