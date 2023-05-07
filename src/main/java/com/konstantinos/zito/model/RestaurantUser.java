@@ -1,5 +1,6 @@
 package com.example.zito.model;
 
+import java.util.HashSet;
 import java.util.Set;
 
 import org.springframework.data.annotation.Id;
@@ -30,6 +31,7 @@ public class RestaurantUser {
     Set<String> roles;
 
     public RestaurantUser() {
+        this.roles = new HashSet<String>();
     }
 
     public RestaurantUser(Integer phoneNumber, String name) {
