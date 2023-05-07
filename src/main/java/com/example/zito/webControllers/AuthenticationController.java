@@ -2,52 +2,68 @@ package com.example.zito.webControllers;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.zito.model.LoginRequest;
 import com.example.zito.model.LoginResponse;
+import com.example.zito.model.RestaurantUser;
 import com.example.zito.repositories.UserRepository;
 import com.example.zito.security.JwtTokenUtil;
 
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/v1/auth")
+@Profile("!dev")
+@RequestMapping("/user")
 public class AuthenticationController {
         private static final Logger logger = LoggerFactory.getLogger(Authentication.class);
-
         final UserRepository userRepository;
-
         final AuthenticationManager authenticationManager;
 
         final JwtTokenUtil jwtTokenUtil;
+        private PasswordEncoder passwordEncoder;
 
         public AuthenticationController(UserRepository userRepository, AuthenticationManager authenticationManager,
-                        JwtTokenUtil jwtTokenUtil) {
+                        JwtTokenUtil jwtTokenUtil, PasswordEncoder passwordEncoder) {
                 this.userRepository = userRepository;
                 this.authenticationManager = authenticationManager;
                 this.jwtTokenUtil = jwtTokenUtil;
+                this.passwordEncoder = passwordEncoder;
         }
 
-        /*
-         * Create a account
+        /**
+         * Sign in with an existing account
+         * 
+         * @param request {@code LoginRequest} with a username and a password
+         * 
+         * @Returns an jwt token to be used in future requets
          */
+
         @PostMapping("/signin")
         public ResponseEntity<LoginResponse> signIn(@Valid @RequestBody LoginRequest request) {
 
@@ -69,6 +85,57 @@ public class AuthenticationController {
                                 .body(new LoginResponse(jwtCookie.toString(),
                                                 userDetails.getUsername(),
                                                 roles));
+        }
+
+        /**
+         * 
+         * Creates a new user by persisting the given {@code RestaurantUser}
+         * 
+         * @param user The {@code RestaurantUser} object to be persisted.
+         * @return A {@code ResponseEntity} with a status of {@code HttpStatus.CREATED}
+         *         and the created waiter in the body.
+         * @throws javax.validation.ValidationException
+         */
+        @PostMapping("/register")
+        @PreAuthorize("hasRole('admin')")
+        public ResponseEntity<RestaurantUser> createRestaurauntUser(@Valid @RequestBody RestaurantUser user) {
+                RestaurantUser newUser = new RestaurantUser();
+                newUser.setUsername(user.getUsername());
+                newUser.setPassword(passwordEncoder.encode(user.getPassword()));
+                newUser.setPhoneNumber(user.getPhoneNumber());
+                userRepository.save(newUser);
+                logger.info("User {} created sucessfully", user.getUsername());
+                return ResponseEntity.status(HttpStatus.CREATED).body(user);
+        }
+
+        /**
+         * Update an existing waiter.
+         */
+        @PutMapping("/update")
+        @PreAuthorize("hasRole('admin')")
+        public ResponseEntity<RestaurantUser> updateWaiter(@Valid @RequestBody RestaurantUser updatedUser) {
+                Optional<RestaurantUser> existingUser = userRepository.findById(updatedUser.getId());
+                if (existingUser.isPresent()) {
+                        final RestaurantUser updatedWaiter = existingUser.get();
+                        existingUser.get().setUsername(updatedUser.getUsername());
+                        existingUser.get().setPhoneNumber(updatedUser.getPhoneNumber());
+                        existingUser.get().setPassword(passwordEncoder.encode(updatedUser.getPassword()));
+                        existingUser.get().setRoles(updatedUser.getRoles());
+
+                        userRepository.save(existingUser.get());
+                        logger.info("User {} updated sucessfully", updatedUser.getUsername());
+                        return ResponseEntity.ok(updatedWaiter);
+                } else {
+                        logger.warn("User {} was not found", updatedUser.getUsername());
+                        return ResponseEntity.notFound().build();
+                }
+        }
+
+        @DeleteMapping("/{username}")
+        @PreAuthorize("hasRole('admin')")
+        public void deleteWaiterById(@PathVariable("username") String username) {
+                logger.info("Deleting user {}", username);
+                userRepository.deleteById(username);
         }
 
 }

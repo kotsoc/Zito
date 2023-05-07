@@ -7,6 +7,7 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Document(collection = "user")
@@ -20,8 +21,10 @@ public class RestaurantUser {
 
     @Indexed(unique = true)
     @NotBlank
+    @Size(min = 3, max = 20, message = "Username must be between 3 and 20 characters")
     String username;
 
+    @Size(min = 5, max = 25, message = "Password must be between 5 and 25 characters")
     String password;
 
     Set<String> roles;
