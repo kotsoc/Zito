@@ -8,10 +8,8 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import com.konstantinos.zito.model.Order;
 import com.konstantinos.zito.model.RestaurantUser;
 
-public interface OrderRepository extends MongoRepository<Order, String> {
-    List<Order> findByWaiterName(String waiterName);
-
-    List<Order> findByTableNumber(int table);
+public interface ChangedOrderRepository extends MongoRepository<Order, String> {
+    List<Order> findByWaiterName(RestaurantUser waiter);
 
     Optional<Order> findByOrderId(int orderId);
 }

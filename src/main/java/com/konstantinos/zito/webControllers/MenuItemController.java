@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.konstantinos.zito.model.MenuItem;
 import com.konstantinos.zito.repositories.MenuItemRepository;
+import com.konstantinos.zito.services.MenuItemService;
 
 import jakarta.validation.Valid;
 
@@ -23,12 +24,10 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/v1/menuItems")
 public class MenuItemController {
 
-    // private OrderService orderService;
+    final MenuItemService menuItemService;
 
-    final MenuItemRepository menuRepository;
-
-    MenuItemController(MenuItemRepository menuRepository) {
-        this.menuRepository = menuRepository;
+    MenuItemController(MenuItemService menuItemService) {
+        this.menuItemService = menuItemService;
     }
 
     /*
@@ -36,16 +35,27 @@ public class MenuItemController {
      */
     @GetMapping
     public ResponseEntity<List<MenuItem>> getMenuItems() {
-        return ResponseEntity.ok(menuRepository.findAll());
+        return ResponseEntity.ok(menuItemService.findAll());
+    }
 
+    /*
+     * Get all menu items
+     */
+    @GetMapping("/{name}")
+    public ResponseEntity<MenuItem> getMenuItemByName(@PathVariable String name) {
+        try {
+            return ResponseEntity.ok(menuItemService.getItem(name));
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     /*
      * Create a new menuItem
      */
     @PostMapping
-    public ResponseEntity<MenuItem> PostMenuItems(@Valid @RequestBody MenuItem item) {
-        var res = menuRepository.save(item);
+    public ResponseEntity<List<MenuItem>> PostMenuItems(@Valid @RequestBody List<MenuItem> item) {
+        var res = menuItemService.saveAll(item);
         if (res != null) {
             return ResponseEntity.status(HttpStatus.CREATED).body(res);
         } else {
@@ -56,18 +66,11 @@ public class MenuItemController {
     /*
      * Update a menuItem
      */
-    @PutMapping("{id}")
-    public ResponseEntity<MenuItem> UpdateMenuItem(@PathVariable String id, @RequestBody MenuItem item) {
-        // Retrieve the MenuItem object with the given id from the database
-        Optional<MenuItem> menuItemOptional = menuRepository.findById(id);
-
-        // If the MenuItem object exists, update its properties and save it to the
-        // database
-        if (menuItemOptional.isPresent()) {
-            MenuItem updatedMenuItem = menuRepository.save(item);
-            return ResponseEntity.ok(updatedMenuItem);
-        } else {
-            // If the MenuItem object does not exist, return a 404 Not Found status
+    @PutMapping("/{name}")
+    public ResponseEntity<MenuItem> UpdateMenuItem(@PathVariable String name, @RequestBody MenuItem item) {
+        try {
+            return ResponseEntity.ok(menuItemService.update(name, item));
+        } catch (Exception e) {
             return ResponseEntity.notFound().build();
         }
     }
@@ -77,7 +80,7 @@ public class MenuItemController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<MenuItem> DeleteMenuItem(@PathVariable String id) {
-        menuRepository.deleteById(id);
+        menuItemService.delete(id);
         return ResponseEntity.noContent().build();
     }
 

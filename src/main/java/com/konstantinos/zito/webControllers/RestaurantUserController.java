@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.konstantinos.zito.model.RestaurantUser;
 import com.konstantinos.zito.repositories.UserRepository;
@@ -30,7 +31,11 @@ public class RestaurantUserController {
      */
     @GetMapping("/{waiterName}")
     public ResponseEntity<RestaurantUser> getWaiter(@PathVariable("waiterName") String name) {
-        return ResponseEntity.ok(waiterRepository.findByUsername(name));
+        var maybeWaiter = waiterRepository.findByUsername(name);
+        if (maybeWaiter.isPresent())
+            return ResponseEntity.ok(maybeWaiter.get());
+        else
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User " + name + " not found");
     }
 
     /**

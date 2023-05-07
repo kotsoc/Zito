@@ -25,7 +25,8 @@ public class MongoUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        RestaurantUser user = userRepository.findByUsername(username);
+        RestaurantUser user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException(username));
         Set<SimpleGrantedAuthority> grantedRoles = new HashSet<>();
 
         user.getRoles().forEach(role -> {

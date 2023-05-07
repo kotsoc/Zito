@@ -1,6 +1,7 @@
 package com.konstantinos.zito.model;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 @Document(collection = "menuItem")
@@ -8,7 +9,10 @@ public class MenuItem {
 
     @Id
     private String id;
+
+    @Indexed
     private String name;
+    @Indexed
     private String type;
     private String description;
     private double price;
@@ -26,10 +30,6 @@ public class MenuItem {
     // getters and setters
     public String getId() {
         return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
     }
 
     public String getName() {
