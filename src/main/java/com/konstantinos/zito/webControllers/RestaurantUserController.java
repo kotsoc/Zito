@@ -1,4 +1,4 @@
-package com.example.zito.webControllers;
+package com.konstantinos.zito.webControllers;
 
 import java.util.List;
 import java.util.Optional;
@@ -12,8 +12,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.zito.model.RestaurantUser;
-import com.example.zito.repositories.UserRepository;
+import com.konstantinos.zito.model.RestaurantUser;
+import com.konstantinos.zito.repositories.UserRepository;
 
 @RestController
 @RequestMapping("/api/v1/waiter")

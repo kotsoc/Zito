@@ -1,4 +1,4 @@
-package com.example.zito.security;
+package com.konstantinos.zito.security;
 
 import java.util.ArrayList;
 

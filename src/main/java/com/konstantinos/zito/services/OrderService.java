@@ -1,4 +1,4 @@
-package com.example.zito.services;
+package com.konstantinos.zito.services;
 
 public class OrderService {
 

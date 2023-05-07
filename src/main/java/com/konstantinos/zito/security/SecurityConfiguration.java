@@ -1,4 +1,4 @@
-package com.example.zito.security;
+package com.konstantinos.zito.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

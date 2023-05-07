@@ -1,10 +1,11 @@
-package com.example.zito.services;
+package com.konstantinos.zito.services;
 
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
-import com.example.zito.model.MenuItem;
-import com.example.zito.repositories.MenuItemRepository;
+
+import com.konstantinos.zito.model.MenuItem;
+import com.konstantinos.zito.repositories.MenuItemRepository;
 
 @Service
 public class MenuItemService {

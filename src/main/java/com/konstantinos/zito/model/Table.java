@@ -1,4 +1,4 @@
-package com.example.zito.model;
+package com.konstantinos.zito.model;
 
 import java.util.ArrayList;
 import java.util.List;

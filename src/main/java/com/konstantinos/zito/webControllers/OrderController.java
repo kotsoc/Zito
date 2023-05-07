@@ -1,4 +1,4 @@
-package com.example.zito.webControllers;
+package com.konstantinos.zito.webControllers;
 
 import java.util.Comparator;
 import java.util.List;
@@ -15,11 +15,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.zito.model.Order;
-import com.example.zito.model.RestaurantUser;
-import com.example.zito.repositories.OrderRepository;
-import com.example.zito.repositories.TableRepository;
-import com.example.zito.repositories.UserRepository;
+import com.konstantinos.zito.model.Order;
+import com.konstantinos.zito.model.RestaurantUser;
+import com.konstantinos.zito.repositories.OrderRepository;
+import com.konstantinos.zito.repositories.TableRepository;
+import com.konstantinos.zito.repositories.UserRepository;
 
 import jakarta.validation.Valid;
 

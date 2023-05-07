@@ -1,4 +1,4 @@
-package com.example.zito.security;
+package com.konstantinos.zito.security;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -11,8 +11,8 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import com.example.zito.model.RestaurantUser;
-import com.example.zito.repositories.UserRepository;
+import com.konstantinos.zito.model.RestaurantUser;
+import com.konstantinos.zito.repositories.UserRepository;
 
 @Service
 @Profile("!dev")

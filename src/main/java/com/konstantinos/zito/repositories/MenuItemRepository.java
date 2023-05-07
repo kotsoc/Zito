@@ -1,7 +1,8 @@
-package com.example.zito.repositories;
+package com.konstantinos.zito.repositories;
 
-import com.example.zito.model.MenuItem;
 import org.springframework.data.mongodb.repository.MongoRepository;
+
+import com.konstantinos.zito.model.MenuItem;
 
 public interface MenuItemRepository extends MongoRepository<MenuItem, String> {
 }

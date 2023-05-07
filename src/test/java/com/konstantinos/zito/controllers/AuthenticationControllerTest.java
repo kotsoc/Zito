@@ -1,4 +1,4 @@
-package com.example.zito.controllers;
+package com.konstantinos.zito.controllers;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,12 +38,12 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 
-import com.example.zito.model.LoginRequest;
-import com.example.zito.model.LoginResponse;
-import com.example.zito.model.RestaurantUser;
-import com.example.zito.repositories.UserRepository;
-import com.example.zito.security.JwtTokenUtil;
-import com.example.zito.webControllers.AuthenticationController;
+import com.konstantinos.zito.model.LoginRequest;
+import com.konstantinos.zito.model.LoginResponse;
+import com.konstantinos.zito.model.RestaurantUser;
+import com.konstantinos.zito.repositories.UserRepository;
+import com.konstantinos.zito.security.JwtTokenUtil;
+import com.konstantinos.zito.webControllers.AuthenticationController;
 
 @ExtendWith(MockitoExtension.class)
 public class AuthenticationControllerTest {

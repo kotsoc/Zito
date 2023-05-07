@@ -1,4 +1,4 @@
-package com.example.zito.webControllers;
+package com.konstantinos.zito.webControllers;
 
 import java.util.List;
 import java.util.Optional;
@@ -26,11 +26,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.zito.model.LoginRequest;
-import com.example.zito.model.LoginResponse;
-import com.example.zito.model.RestaurantUser;
-import com.example.zito.repositories.UserRepository;
-import com.example.zito.security.JwtTokenUtil;
+import com.konstantinos.zito.model.LoginRequest;
+import com.konstantinos.zito.model.LoginResponse;
+import com.konstantinos.zito.model.RestaurantUser;
+import com.konstantinos.zito.repositories.UserRepository;
+import com.konstantinos.zito.security.JwtTokenUtil;
 
 import jakarta.validation.Valid;
 

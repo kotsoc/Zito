@@ -1,4 +1,4 @@
-package com.example.zito.webControllers;
+package com.konstantinos.zito.webControllers;
 
 import java.util.List;
 import java.util.Optional;
@@ -14,8 +14,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.zito.model.MenuItem;
-import com.example.zito.repositories.MenuItemRepository;
+import com.konstantinos.zito.model.MenuItem;
+import com.konstantinos.zito.repositories.MenuItemRepository;
 
 import jakarta.validation.Valid;
 
