@@ -1,6 +1,5 @@
 package com.example.zito.webControllers;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -16,7 +15,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -34,7 +32,6 @@ import com.example.zito.model.RestaurantUser;
 import com.example.zito.repositories.UserRepository;
 import com.example.zito.security.JwtTokenUtil;
 
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.validation.Valid;
 
 @RestController
@@ -97,22 +94,29 @@ public class AuthenticationController {
          * @throws javax.validation.ValidationException
          */
         @PostMapping("/register")
-        @PreAuthorize("hasRole('admin')")
+        @PreAuthorize("hasRole('ADMIN')")
         public ResponseEntity<RestaurantUser> createRestaurauntUser(@Valid @RequestBody RestaurantUser user) {
                 RestaurantUser newUser = new RestaurantUser();
                 newUser.setUsername(user.getUsername());
                 newUser.setPassword(passwordEncoder.encode(user.getPassword()));
                 newUser.setPhoneNumber(user.getPhoneNumber());
+                newUser.addRole("ROLE_WAITER");
                 userRepository.save(newUser);
-                logger.info("User {} created sucessfully", user.getUsername());
-                return ResponseEntity.status(HttpStatus.CREATED).body(user);
+                logger.info("User {} created sucessfully", newUser.getUsername());
+                return ResponseEntity.status(HttpStatus.CREATED).body(newUser);
         }
 
         /**
-         * Update an existing waiter.
+         * 
+         * Update an existing user by persisting the given {@code RestaurantUser},
+         * updating is the only way of changing the role of a user
+         * 
+         * @param user The {@code RestaurantUser} object to be persisted.
+         * @return A {@code ResponseEntity} with a status of the opeartion
+         * @throws javax.validation.ValidationException
          */
         @PutMapping("/update")
-        @PreAuthorize("hasRole('admin')")
+        @PreAuthorize("hasRole('ADMIN')")
         public ResponseEntity<RestaurantUser> updateWaiter(@Valid @RequestBody RestaurantUser updatedUser) {
                 Optional<RestaurantUser> existingUser = userRepository.findById(updatedUser.getId());
                 if (existingUser.isPresent()) {
@@ -132,10 +136,9 @@ public class AuthenticationController {
         }
 
         @DeleteMapping("/{username}")
-        @PreAuthorize("hasRole('admin')")
+        @PreAuthorize("hasRole('ADMIN')")
         public void deleteWaiterById(@PathVariable("username") String username) {
                 logger.info("Deleting user {}", username);
                 userRepository.deleteById(username);
         }
-
 }
