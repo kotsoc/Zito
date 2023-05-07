@@ -39,12 +39,12 @@ public class MenuItemController {
     }
 
     /*
-     * Get all menu items
+     * Get menu item by name
      */
     @GetMapping("/{name}")
     public ResponseEntity<MenuItem> getMenuItemByName(@PathVariable String name) {
         try {
-            return ResponseEntity.ok(menuItemService.getItem(name));
+            return ResponseEntity.ok(menuItemService.findItem(name));
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
         }

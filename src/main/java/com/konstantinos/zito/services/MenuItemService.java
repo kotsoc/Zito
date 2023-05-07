@@ -2,6 +2,7 @@ package com.konstantinos.zito.services;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -38,6 +39,11 @@ public class MenuItemService {
         return allItems;
     }
 
+    // Find a menuItem by name
+    public MenuItem findItem(String name) throws ExecutionException {
+        return menuItemsSupplier.get(name);
+    }
+
     // Create a new menuItem
     public List<MenuItem> saveAll(List<MenuItem> menuItems) {
         var item = menuRepository.saveAll(menuItems);
@@ -66,16 +72,7 @@ public class MenuItemService {
         menuRepository.deleteById(id);
     }
 
-    // Find a menuItem by name
-    public MenuItem getItem(String name) {
-        try {
-            return menuItemsSupplier.get(name);
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    // Find a menuItem by name
+    // Find a menuItem price by name
     public double getItemPrice(String name) {
         try {
             return menuItemsSupplier.get(name).getPrice();
@@ -84,7 +81,16 @@ public class MenuItemService {
         }
     }
 
-    // Find a menuItem by name
+    // Find a menuItem price by name
+    public String getItemType(String name) {
+        try {
+            return menuItemsSupplier.get(name).getType();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    // internal supplier function
     private MenuItem findByName(String name) {
         Optional<MenuItem> menuItemOptional = menuRepository.findByName(name);
         if (menuItemOptional.isPresent()) {
