@@ -11,5 +11,5 @@ import com.konstantinos.zito.model.RestaurantUser;
 public interface ChangedOrderRepository extends MongoRepository<Order, String> {
     List<Order> findByWaiterName(RestaurantUser waiter);
 
-    Optional<Order> findByOrderId(int orderId);
+    Optional<Order> findById(int orderId);
 }

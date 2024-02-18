@@ -8,6 +8,8 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import com.konstantinos.zito.model.MenuItem;
 
 public interface MenuItemRepository extends MongoRepository<MenuItem, String> {
+    Optional<MenuItem> findById(String type);
+    
     Optional<MenuItem> findByName(String name);
 
     List<MenuItem> findByType(String type);

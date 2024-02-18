@@ -13,5 +13,5 @@ public interface OrderRepository extends MongoRepository<Order, String> {
 
     List<Order> findByTableNumber(int table);
 
-    Optional<Order> findByOrderId(int orderId);
+    Optional<Order> findById(int orderId);
 }

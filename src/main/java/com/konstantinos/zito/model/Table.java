@@ -9,35 +9,27 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 @Document(collection = "Table")
 public class Table {
-    @Id
-    private String id;
 
-    private int number;
+    @Id
+    private int id;
+
     @DBRef
     private List<Order> orders;
 
     public Table() {
     }
 
-    public Table(int number) {
-        this.number = number;
+    public Table(int id) {
+        this.id = id;
         this.orders = new ArrayList<>();
     }
 
-    public String getId() {
+    public int getId() {
         return id;
     }
 
-    public void setId(String id) {
+    public void setId(int id) {
         this.id = id;
-    }
-
-    public int getNumber() {
-        return number;
-    }
-
-    public void setNumber(int number) {
-        this.number = number;
     }
 
     public List<Order> getOrders() {

@@ -18,9 +18,8 @@ public class Order {
 
     @Id
     @Setter(AccessLevel.NONE)
-    private String $id;
+    private int id;
 
-    private int orderId;
     private int tableNumber;
     private Date order_time;
     private Date latest_update;
@@ -39,7 +38,7 @@ public class Order {
 
     public Order(int orderid, int table, Date order_time, double total, String waiterName, Map<String, Integer> items,
             boolean paid) {
-        this.orderId = orderid;
+        this.id = orderid;
         this.tableNumber = table;
         this.order_time = order_time;
         this.total = total;

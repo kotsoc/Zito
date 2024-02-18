@@ -99,7 +99,7 @@ public class OrderController {
         var oldOrder = orderRepository.findById(orderId);
 
         if (oldOrder.isPresent()
-                && tableRepository.findByNumber(updatedOrder.getTableNumber()).isPresent()
+                && tableRepository.findById(updatedOrder.getTableNumber()).isPresent()
                 && waiterRepository.existsByUsername(waiterName)) {
             // Save the old order reference
             changedOrderRepository.save(oldOrder.get());
