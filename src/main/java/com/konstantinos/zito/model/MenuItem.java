@@ -16,15 +16,17 @@ public class MenuItem {
     private String type;
     private String description;
     private double price;
+    private String imageUrl;
 
     public MenuItem() {
     }
 
-    public MenuItem(String name, String type, String description, double price) {
+    public MenuItem(String name, String type, String description, double price, String imageUrl) {
         this.name = name;
         this.type = type;
         this.description = description;
         this.price = price;
+        this.imageUrl = imageUrl;
     }
 
     // getters and setters
@@ -62,5 +64,13 @@ public class MenuItem {
 
     public void setPrice(double price) {
         this.price = price;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String urlString) {
+        this.imageUrl = urlString;
     }
 }

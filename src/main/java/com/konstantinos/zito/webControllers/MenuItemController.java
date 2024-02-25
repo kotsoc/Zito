@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,12 +16,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.konstantinos.zito.model.MenuItem;
-import com.konstantinos.zito.repositories.MenuItemRepository;
 import com.konstantinos.zito.services.MenuItemService;
 
 import jakarta.validation.Valid;
 
 @RestController
+@CrossOrigin
 @RequestMapping("/api/v1/menuItems")
 public class MenuItemController {
 
@@ -34,6 +35,7 @@ public class MenuItemController {
      * Get all menu items
      */
     @GetMapping
+    @CrossOrigin
     public ResponseEntity<List<MenuItem>> getMenuItems() {
         return ResponseEntity.ok(menuItemService.findAll());
     }

@@ -9,6 +9,7 @@ This is a RESTful API for managing a restaurant, built using Spring Boot and Mon
 1. Clone the repository: `git clone https://github.com/kotsoc/Zito.git`
 2. Navigate to the project directory: `cd zito`
 3. Build the project: `mvn clean install`
+4. Run Mongodb replacing the path to the one that corresponds to your db: `mongod -dbpath ~/data/db`
 4. Start the server: `java -jar target/zito-0.0.1-SNAPSHOT.jar`
 
 By default, the server will listen on port 8080. You can change this by setting the `server.port` property in `application.properties`.

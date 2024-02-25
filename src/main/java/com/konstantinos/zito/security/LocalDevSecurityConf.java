@@ -23,7 +23,7 @@ public class LocalDevSecurityConf implements AuthenticationManager {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.authorizeHttpRequests()
+        http.cors().and().authorizeHttpRequests()
                 .anyRequest().authenticated().and().httpBasic(withDefaults());
 
         return http.build();
@@ -40,7 +40,7 @@ public class LocalDevSecurityConf implements AuthenticationManager {
                     authentication.getCredentials(), authoritiesList);
         }
         return authentication;
-    }
+    }  
 
     @Bean
     public PasswordEncoder passwordEncoder() {
