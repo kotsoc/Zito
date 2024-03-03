@@ -94,13 +94,12 @@ public class AuthenticationController {
          * @throws javax.validation.ValidationException
          */
         @PostMapping("/register")
-        @PreAuthorize("hasRole('ADMIN')")
         public ResponseEntity<RestaurantUser> createRestaurauntUser(@Valid @RequestBody RestaurantUser user) {
                 RestaurantUser newUser = new RestaurantUser();
                 newUser.setUsername(user.getUsername());
                 newUser.setPassword(passwordEncoder.encode(user.getPassword()));
                 newUser.setPhoneNumber(user.getPhoneNumber());
-                newUser.addRole("ROLE_WAITER");
+                newUser.addRole("ROLE_EMPTY");
                 userRepository.save(newUser);
                 logger.info("User {} created sucessfully", newUser.getUsername());
                 return ResponseEntity.status(HttpStatus.CREATED).body(newUser);
@@ -109,7 +108,7 @@ public class AuthenticationController {
         /**
          * 
          * Update an existing user by persisting the given {@code RestaurantUser},
-         * updating is the only way of changing the role of a user
+         * updating is the only way of changing/adding the role of a user
          * 
          * @param user The {@code RestaurantUser} object to be persisted.
          * @return A {@code ResponseEntity} with a status of the opeartion
