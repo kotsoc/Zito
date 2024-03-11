@@ -1,5 +1,7 @@
 package com.konstantinos.zito.security;
 
+import java.nio.charset.StandardCharsets;
+import java.security.Key;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -17,6 +19,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.UnsupportedJwtException;
+import io.jsonwebtoken.security.Keys;
 
 @Component
 @Profile("!dev")
@@ -30,17 +33,20 @@ public class JwtTokenUtil {
     private int jwtExpirationMs;
 
     public String getUserNameFromJwtToken(String token) {
-        return Jwts.parserBuilder().setSigningKey(jwtSecret).build().parseClaimsJws(token).getBody().getSubject();
+        Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+        return Jwts.parserBuilder().setSigningKey(privateKey).build().parseClaimsJws(token).getBody().getSubject();
     }
 
     public List<String> getRolesFromJwtToken(String token) {
-        return (List<String>) Jwts.parserBuilder().setSigningKey(jwtSecret).build().parseClaimsJws(token).getBody()
+        Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+        return (List<String>) Jwts.parserBuilder().setSigningKey(privateKey).build().parseClaimsJws(token).getBody()
                 .get("roles");
     }
 
     public boolean validateJwtToken(String authToken) {
         try {
-            Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(authToken);
+            Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+            Jwts.parserBuilder().setSigningKey(privateKey).build().parseClaimsJws(authToken);
             return true;
         } catch (SecurityException e) {
             logger.error("Invalid JWT signature: {}", e.getMessage());
@@ -66,11 +72,12 @@ public class JwtTokenUtil {
     }
 
     public String generateTokenFromUsername(String username, List<String> authorities) {
+        Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
         return Jwts.builder()
                 .setSubject(username)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
-                .signWith(SignatureAlgorithm.HS512, jwtSecret)
+                .signWith(privateKey, SignatureAlgorithm.HS256)
                 .claim("roles", authorities)
                 .compact();
     }

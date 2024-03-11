@@ -57,7 +57,7 @@ public class SecurityConfiguration {
                 .sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers("/resources/**", "/info", "index.html", "/css/*", "/js/*",
-                                "/user/signin", "/swagger-ui/*", "/v3/**")
+                                "/user/signin","/user/register", "/swagger-ui/*", "/v3/**")
                         .permitAll()
                         .anyRequest().authenticated());
 

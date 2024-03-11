@@ -5,6 +5,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 import java.util.ArrayList;
@@ -29,6 +31,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -43,6 +46,7 @@ import com.konstantinos.zito.model.LoginResponse;
 import com.konstantinos.zito.model.RestaurantUser;
 import com.konstantinos.zito.repositories.UserRepository;
 import com.konstantinos.zito.security.JwtTokenUtil;
+import com.konstantinos.zito.services.TokenInvalidatorService;
 import com.konstantinos.zito.webControllers.AuthenticationController;
 
 @ExtendWith(MockitoExtension.class)
@@ -59,6 +63,9 @@ public class AuthenticationControllerTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private TokenInvalidatorService tokenInvalidatorService;
 
     @InjectMocks
     private AuthenticationController authenticationController;
@@ -103,7 +110,7 @@ public class AuthenticationControllerTest {
         // Verify that the response entity has a LoginResponse object in the body with
         // the correct values
         LoginResponse loginResponse = responseEntity.getBody();
-        assertEquals("jwt=jwt-value", loginResponse.getJwtToken());
+        assertEquals("jwt-value", loginResponse.getJwtToken());
         assertEquals("test", loginResponse.getUsername());
         assertEquals(1, loginResponse.getRoles().size());
         assert (loginResponse.getRoles().contains("ROLE_USER"));
@@ -115,7 +122,7 @@ public class AuthenticationControllerTest {
         RestaurantUser user = new RestaurantUser();
         user.setUsername("test");
         user.setPassword("password");
-        user.setPhoneNumber(12345678);
+        user.setPhoneNumber("12345678");
         user.addRole("ROLE_WAITER");
 
         // Mock the userRepository.save() method to return the user object
@@ -130,9 +137,9 @@ public class AuthenticationControllerTest {
         // Verify that the response entity has the correct user object in the body
         RestaurantUser createdUser = responseEntity.getBody();
         assertEquals("test", createdUser.getUsername());
-        assertEquals(12345678, createdUser.getPhoneNumber());
+        assertEquals("12345678", createdUser.getPhoneNumber());
         assertEquals(1, createdUser.getRoles().size());
-        assertTrue(createdUser.getRoles().contains("ROLE_WAITER"));
+        assertTrue(createdUser.getRoles().contains("ROLE_GUEST"));
     }
 
     @Test
@@ -142,11 +149,11 @@ public class AuthenticationControllerTest {
         updatedUser.setId("123");
         updatedUser.setUsername("test2");
         updatedUser.setPassword("password2");
-        updatedUser.setPhoneNumber(98765432);
+        updatedUser.setPhoneNumber("98765432");
         updatedUser.addRole("ROLE_WAITER");
         updatedUser.addRole("ROLE_COOK");
 
-        when(userRepository.findById(anyString()))
+        when(userRepository.findByUsername(anyString()))
                 .thenReturn(Optional.of(updatedUser));
 
         // Call the updateWaiter() method
@@ -159,9 +166,26 @@ public class AuthenticationControllerTest {
         RestaurantUser updatedResponseUser = responseEntity.getBody();
         assertEquals("123", updatedResponseUser.getId());
         assertEquals("test2", updatedResponseUser.getUsername());
-        assertEquals(98765432, updatedResponseUser.getPhoneNumber());
+        assertEquals("98765432", updatedResponseUser.getPhoneNumber());
         assertEquals(2, updatedResponseUser.getRoles().size());
         assertTrue(updatedResponseUser.getRoles().contains("ROLE_WAITER"));
         assertTrue(updatedResponseUser.getRoles().contains("ROLE_COOK"));
+    }
+
+     @Test
+    public void testSignOut() {
+        // Mock an authentication object with a token
+        Authentication authentication = mock(Authentication.class);
+        when(authentication.getCredentials()).thenReturn("token-value");
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        // Call the signOut() method
+        ResponseEntity<Void> responseEntity = authenticationController.signOut();
+
+        // Verify that the response entity has a status of OK
+        assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+
+        // Verify that the tokenInvalidatorService.invalidateToken() method was called with the token
+        verify(tokenInvalidatorService, times(1)).invalidateToken("token-value");
     }
 }

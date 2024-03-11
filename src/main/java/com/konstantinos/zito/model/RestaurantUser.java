@@ -18,7 +18,7 @@ public class RestaurantUser {
     @Id
     String id;
 
-    Integer phoneNumber;
+    String phoneNumber;
 
     @Indexed(unique = true)
     @NotBlank
@@ -35,7 +35,7 @@ public class RestaurantUser {
         this.roles = new HashSet<String>();
     }
 
-    public RestaurantUser(Integer phoneNumber, String name) {
+    public RestaurantUser(String phoneNumber, String name) {
         this.phoneNumber = phoneNumber;
         this.username = name;
     }

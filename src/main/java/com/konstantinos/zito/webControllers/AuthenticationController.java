@@ -6,9 +6,11 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,6 +21,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -31,6 +34,7 @@ import com.konstantinos.zito.model.LoginResponse;
 import com.konstantinos.zito.model.RestaurantUser;
 import com.konstantinos.zito.repositories.UserRepository;
 import com.konstantinos.zito.security.JwtTokenUtil;
+import com.konstantinos.zito.services.TokenInvalidatorService;
 
 import jakarta.validation.Valid;
 
@@ -44,13 +48,16 @@ public class AuthenticationController {
 
         final JwtTokenUtil jwtTokenUtil;
         private PasswordEncoder passwordEncoder;
+        final TokenInvalidatorService tokenInvalidatorService;
 
         public AuthenticationController(UserRepository userRepository, AuthenticationManager authenticationManager,
-                        JwtTokenUtil jwtTokenUtil, PasswordEncoder passwordEncoder) {
+                        JwtTokenUtil jwtTokenUtil, PasswordEncoder passwordEncoder, 
+                        TokenInvalidatorService tokenInvalidatorService) {
                 this.userRepository = userRepository;
                 this.authenticationManager = authenticationManager;
                 this.jwtTokenUtil = jwtTokenUtil;
                 this.passwordEncoder = passwordEncoder;
+                this.tokenInvalidatorService = tokenInvalidatorService;
         }
 
         /**
@@ -79,9 +86,27 @@ public class AuthenticationController {
                 // authentication.setDetails(new
                 // WebAuthenticationDetailsSource().buildDetails(request));
                 return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
-                                .body(new LoginResponse(jwtCookie.toString(),
+                                .body(new LoginResponse(jwtCookie.getValue(),
                                                 userDetails.getUsername(),
                                                 roles));
+        }
+
+        
+        /**
+         * Sign out an existing account, the access token will be blacklisted
+         * 
+         */
+
+        @GetMapping("/signout")
+        public ResponseEntity<Void> signOut() {
+                var authentication = SecurityContextHolder.getContext().getAuthentication();
+                if(authentication.getCredentials() instanceof String) {
+                        this.tokenInvalidatorService.invalidateToken(authentication.getCredentials().toString());
+                        logger.info("user signed out!");
+                        return ResponseEntity.status(HttpStatus.OK).build();
+                } else {
+                        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+                }
         }
 
         /**
@@ -99,7 +124,7 @@ public class AuthenticationController {
                 newUser.setUsername(user.getUsername());
                 newUser.setPassword(passwordEncoder.encode(user.getPassword()));
                 newUser.setPhoneNumber(user.getPhoneNumber());
-                newUser.addRole("ROLE_EMPTY");
+                newUser.addRole("ROLE_GUEST");
                 userRepository.save(newUser);
                 logger.info("User {} created sucessfully", newUser.getUsername());
                 return ResponseEntity.status(HttpStatus.CREATED).body(newUser);
@@ -117,12 +142,11 @@ public class AuthenticationController {
         @PutMapping("/update")
         @PreAuthorize("hasRole('ADMIN')")
         public ResponseEntity<RestaurantUser> updateWaiter(@Valid @RequestBody RestaurantUser updatedUser) {
-                Optional<RestaurantUser> existingUser = userRepository.findById(updatedUser.getId());
+                Optional<RestaurantUser> existingUser = userRepository.findByUsername(updatedUser.getUsername());
                 if (existingUser.isPresent()) {
                         final RestaurantUser updatedWaiter = existingUser.get();
                         existingUser.get().setUsername(updatedUser.getUsername());
                         existingUser.get().setPhoneNumber(updatedUser.getPhoneNumber());
-                        existingUser.get().setPassword(passwordEncoder.encode(updatedUser.getPassword()));
                         existingUser.get().setRoles(updatedUser.getRoles());
 
                         userRepository.save(existingUser.get());
@@ -134,10 +158,36 @@ public class AuthenticationController {
                 }
         }
 
+         /**
+         * 
+         * Attempts to delete a user if it exists
+         * @param user The {@code RestaurantUser} object to be persisted.
+         * @return A {@code ResponseEntity} with a status of the opeartion
+         */
         @DeleteMapping("/{username}")
         @PreAuthorize("hasRole('ADMIN')")
         public void deleteWaiterById(@PathVariable("username") String username) {
                 logger.info("Deleting user {}", username);
-                userRepository.deleteById(username);
+                var user = userRepository.findByUsername(username);
+                if(user.isPresent()){
+                        userRepository.deleteById(username);
+                }
         }
+
+        
+        /**
+         * 
+         * Refresh the token for a certain {@code RestaurantUser},
+         * 
+         * @param user The {@code RestaurantUser} object to be persisted.
+         * @return A new Jwt token for the user
+         */
+        @GetMapping("/refresh")
+        public ResponseEntity<String> refreshToken(@Valid @RequestBody String refreshToken) {
+              //Currently not needed;
+              return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body("");
+        }
+
+
+
 }
