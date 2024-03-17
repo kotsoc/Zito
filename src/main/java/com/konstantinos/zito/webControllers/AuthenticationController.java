@@ -51,7 +51,7 @@ public class AuthenticationController {
         final TokenInvalidatorService tokenInvalidatorService;
 
         public AuthenticationController(UserRepository userRepository, AuthenticationManager authenticationManager,
-                        JwtTokenUtil jwtTokenUtil, PasswordEncoder passwordEncoder, 
+                        JwtTokenUtil jwtTokenUtil, PasswordEncoder passwordEncoder,
                         TokenInvalidatorService tokenInvalidatorService) {
                 this.userRepository = userRepository;
                 this.authenticationManager = authenticationManager;
@@ -91,7 +91,6 @@ public class AuthenticationController {
                                                 roles));
         }
 
-        
         /**
          * Sign out an existing account, the access token will be blacklisted
          * 
@@ -100,7 +99,7 @@ public class AuthenticationController {
         @GetMapping("/signout")
         public ResponseEntity<Void> signOut() {
                 var authentication = SecurityContextHolder.getContext().getAuthentication();
-                if(authentication.getCredentials() instanceof String) {
+                if (authentication.getCredentials() instanceof String) {
                         this.tokenInvalidatorService.invalidateToken(authentication.getCredentials().toString());
                         logger.info("user signed out!");
                         return ResponseEntity.status(HttpStatus.OK).build();
@@ -125,9 +124,14 @@ public class AuthenticationController {
                 newUser.setPassword(passwordEncoder.encode(user.getPassword()));
                 newUser.setPhoneNumber(user.getPhoneNumber());
                 newUser.addRole("ROLE_GUEST");
-                userRepository.save(newUser);
-                logger.info("User {} created sucessfully", newUser.getUsername());
-                return ResponseEntity.status(HttpStatus.CREATED).body(newUser);
+                try{
+                        userRepository.save(newUser);
+                        logger.info("User {} created sucessfully", newUser.getUsername());
+                        return ResponseEntity.status(HttpStatus.CREATED).body(newUser);
+                } catch (Exception e) {
+                        logger.warn("Could not create User {} : duplicate Username", newUser.getUsername());
+                        return ResponseEntity.status(HttpStatus.CONFLICT).body(new RestaurantUser());
+                }
         }
 
         /**
@@ -158,9 +162,10 @@ public class AuthenticationController {
                 }
         }
 
-         /**
+        /**
          * 
          * Attempts to delete a user if it exists
+         * 
          * @param user The {@code RestaurantUser} object to be persisted.
          * @return A {@code ResponseEntity} with a status of the opeartion
          */
@@ -169,12 +174,11 @@ public class AuthenticationController {
         public void deleteWaiterById(@PathVariable("username") String username) {
                 logger.info("Deleting user {}", username);
                 var user = userRepository.findByUsername(username);
-                if(user.isPresent()){
+                if (user.isPresent()) {
                         userRepository.deleteById(username);
                 }
         }
 
-        
         /**
          * 
          * Refresh the token for a certain {@code RestaurantUser},
@@ -184,10 +188,8 @@ public class AuthenticationController {
          */
         @GetMapping("/refresh")
         public ResponseEntity<String> refreshToken(@Valid @RequestBody String refreshToken) {
-              //Currently not needed;
-              return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body("");
+                // Currently not needed;
+                return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body("");
         }
-
-
 
 }
