@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.konstantinos.zito.model.Table;
+import com.konstantinos.zito.model.TableLayout;
+import com.konstantinos.zito.repositories.TableLayoutRepository;
 import com.konstantinos.zito.repositories.TableRepository;
 
 import jakarta.validation.Valid;
@@ -24,9 +26,11 @@ import jakarta.validation.Valid;
 public class TableController {
 
     private final TableRepository tableRepository;
+    private final TableLayoutRepository tableLayoutRepository;
 
-    public TableController(TableRepository tableRepository) {
+    public TableController(TableRepository tableRepository, TableLayoutRepository tableLayoutRepository) {
         this.tableRepository = tableRepository;
+        this.tableLayoutRepository = tableLayoutRepository;
     }
 
     /*
@@ -81,6 +85,19 @@ public class TableController {
         if (Table.isPresent()) {
             tableRepository.deleteById(id);
             return ResponseEntity.noContent().build();
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+      /*
+     * Get the table layout
+     */
+    @GetMapping("/layout")
+    public ResponseEntity<List<TableLayout>> getTableLayout() {
+        List<TableLayout> layoutList = tableLayoutRepository.findAll();
+        if (layoutList.size() > 0) {
+            return ResponseEntity.ok(layoutList);
         } else {
             return ResponseEntity.notFound().build();
         }
