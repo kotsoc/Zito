@@ -3,8 +3,11 @@ package com.konstantinos.zito.webControllers;
 import java.util.List;
 import java.util.Optional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,6 +30,7 @@ public class TableController {
 
     private final TableRepository tableRepository;
     private final TableLayoutRepository tableLayoutRepository;
+    private static final Logger logger = LoggerFactory.getLogger(Authentication.class);
 
     public TableController(TableRepository tableRepository, TableLayoutRepository tableLayoutRepository) {
         this.tableRepository = tableRepository;
@@ -91,16 +95,40 @@ public class TableController {
     }
 
       /*
-     * Get the table layout
+     * Get the table layout for all tables
      */
     @GetMapping("/layout")
     public ResponseEntity<List<TableLayout>> getTableLayout() {
         List<TableLayout> layoutList = tableLayoutRepository.findAll();
-        if (layoutList.size() > 0) {
-            return ResponseEntity.ok(layoutList);
+        return ResponseEntity.ok(layoutList);
+    }
+
+    
+    /**
+     * Add a new Table to the layout
+     */
+    @PostMapping("/layout")
+    public ResponseEntity<TableLayout> addTableToLayout(@Valid @RequestBody TableLayout tableLayout) {
+        try{
+            TableLayout savedTable = tableLayoutRepository.save(tableLayout);
+            return ResponseEntity.status(HttpStatus.CREATED).body(savedTable);
+        } catch (Exception e) {
+            logger.error("error inserting TableLayout", e);
+            return ResponseEntity.badRequest().body(new TableLayout());
+        }
+    }
+
+    
+    @DeleteMapping("/layout/{id}")
+    public ResponseEntity<Void> deleteTableLayoutById(@PathVariable("id") String id) {
+        Optional<TableLayout> Table = tableLayoutRepository.findById(id);
+        if (Table.isPresent()) {
+            tableLayoutRepository.deleteById(id);
+            return ResponseEntity.noContent().build();
         } else {
             return ResponseEntity.notFound().build();
         }
     }
 
+    
 }
