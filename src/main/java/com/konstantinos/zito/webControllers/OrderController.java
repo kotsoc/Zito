@@ -105,7 +105,7 @@ public class OrderController {
         if (oldOrder.isPresent()
                 && tableRepository.findById(updatedOrder.getTableNumber()).isPresent()
                 && waiterRepository.existsByUsername(waiterName)) {
-            logger.info(String.format("Updated Order by %s with %d items", waiterName, order.getItems().size()));
+            logger.info(String.format("Updated Order by %s with %d items", waiterName, updatedOrder.getItems().size()));
             // Save the old order reference
             changedOrderRepository.save(oldOrder.get());
             var newOrder = oldOrder.get();
