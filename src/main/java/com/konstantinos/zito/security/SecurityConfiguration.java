@@ -56,7 +56,7 @@ public class SecurityConfiguration {
                 .csrf(csrf -> csrf.disable()).cors(withDefaults())
                 .sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authz -> authz
-                        .requestMatchers("/resources/**", "/info", "index.html", "/css/*", "/js/*",
+                        .requestMatchers("/actuator/**","/*.png","/index.html", "/manifest.json", "/favicon.ico","/static/**" ,"/css/*", "/js/*",
                                 "/user/signin","/user/register", "/swagger-ui/*", "/v3/**")
                         .permitAll()
                         .anyRequest().authenticated());

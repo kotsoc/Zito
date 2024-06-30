@@ -1,8 +1,8 @@
 package com.konstantinos.zito.model;
 
 import java.util.Date;
-import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
@@ -18,7 +18,7 @@ public class Order {
 
     @Id
     @Setter(AccessLevel.NONE)
-    private int id;
+    private UUID id;
 
     private int tableNumber;
     private Date order_time;
@@ -36,9 +36,9 @@ public class Order {
     public Order() {
     }
 
-    public Order(int orderid, int table, Date order_time, double total, String waiterName, Map<String, Integer> items,
+    public Order(int table, Date order_time, double total, String waiterName, Map<String, Integer> items,
             boolean paid) {
-        this.id = orderid;
+        this.id = UUID.randomUUID();
         this.tableNumber = table;
         this.order_time = order_time;
         this.total = total;

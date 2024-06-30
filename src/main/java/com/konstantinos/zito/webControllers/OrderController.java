@@ -5,10 +5,14 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -35,6 +39,7 @@ public class OrderController {
     private final UserRepository waiterRepository;
     private final TableRepository tableRepository;
     private final ChangedOrderRepository changedOrderRepository;
+    private static final Logger logger = LoggerFactory.getLogger(Authentication.class);
 
     public OrderController(OrderRepository orderRepository, UserRepository waiterRepository,
             TableRepository tableRepository, ChangedOrderRepository changedOrderRepository) {
@@ -81,11 +86,10 @@ public class OrderController {
         var waiter = waiterRepository.findByUsername(waiterName);
         if (waiter.isPresent()) {
             order.setWaiterName(waiterName);
-            var date = new Date();
-            order.setOrder_time(date);
-            order.setLatest_update(date);
+            logger.info(String.format("Order received by %s with %d items", waiterName, order.getItems().size()));
             return ResponseEntity.status(HttpStatus.CREATED).body(orderRepository.save(order));
         } else {
+            logger.error(String.format("User %s was not found", waiterName));
             return ResponseEntity.badRequest().build();
         }
     }
@@ -95,12 +99,13 @@ public class OrderController {
      */
     @PutMapping("/{waiter}/{orderId}")
     public ResponseEntity<Order> UpdateOrder(@PathVariable("waiterId") String waiterName,
-            @PathVariable("orderId") String orderId, @Valid @RequestBody Order updatedOrder) {
+            @PathVariable("orderId") UUID orderId, @Valid @RequestBody Order updatedOrder) {
         var oldOrder = orderRepository.findById(orderId);
 
         if (oldOrder.isPresent()
                 && tableRepository.findById(updatedOrder.getTableNumber()).isPresent()
                 && waiterRepository.existsByUsername(waiterName)) {
+            logger.info(String.format("Updated Order by %s with %d items", waiterName, order.getItems().size()));
             // Save the old order reference
             changedOrderRepository.save(oldOrder.get());
             var newOrder = oldOrder.get();
@@ -111,6 +116,7 @@ public class OrderController {
             newOrder.setTableNumber(updatedOrder.getTableNumber());
             return ResponseEntity.ok(orderRepository.save(updatedOrder));
         } else {
+            logger.error(String.format("User %s was not found", waiterName));
             return ResponseEntity.notFound().build();
         }
     }
