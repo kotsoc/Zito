@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -68,6 +69,7 @@ public class OrderController {
      * Get all orders for a table
      */
     @GetMapping("/table/{tableId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAITER')")
     public ResponseEntity<List<Order>> getOrdersByTable(@PathVariable("tableId") int tableId) {
         List<Order> orders = orderRepository.findByTableNumber(tableId);
         if (!orders.isEmpty()) {
@@ -98,6 +100,7 @@ public class OrderController {
      * Update an order
      */
     @PutMapping("/{waiter}/{orderId}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Order> UpdateOrder(@PathVariable("waiterId") String waiterName,
             @PathVariable("orderId") UUID orderId, @Valid @RequestBody Order updatedOrder) {
         var oldOrder = orderRepository.findById(orderId);
@@ -125,6 +128,7 @@ public class OrderController {
      * Deletes an order, need to correspond to a valid waiter/table
      */
     @DeleteMapping("/{waiterId}/{tableId}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Order> deleteTable(@PathVariable("waiterId") String waiterId,
             @PathVariable("tableId") String tableId) {
         if (waiterRepository.findById(waiterId).isPresent() && tableRepository.findById(tableId).isPresent()) {
