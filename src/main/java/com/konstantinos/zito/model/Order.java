@@ -12,7 +12,7 @@ import lombok.Data;
 import lombok.Setter;
 import lombok.AccessLevel;
 
-@Document(collection = "Order")
+@Document(collection = "orders")
 @Data
 public class Order {
 

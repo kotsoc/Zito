@@ -7,7 +7,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import lombok.Data;
 
-@Document(collection = "TableLayout")
+@Document(collection = "tablelayouts")
 @Data
 @CompoundIndex(name = "uniqueCoordinate", def = "{'coordx': 1, 'coordy': 1}", unique = true)
 public class TableLayout {
