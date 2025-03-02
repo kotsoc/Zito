@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.konstantinos</groupId>
 	<artifactId>zito</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.0.2-SNAPSHOT</version>
 	<name>zito</name>
 	<description>Zito - Generic back-end for a remote ordering</description>
 	<properties>
@@ -93,6 +93,16 @@
 				</execution>
     			</executions>
 			</plugin>
+			<plugin>
+                <groupId>com.google.cloud.tools</groupId>
+                <artifactId>jib-maven-plugin</artifactId>
+                <version>3.4.4</version>
+                <configuration>
+                    <to>
+                        <image>registry.hub.docker.com/kotsouba/servantis:${version}</image>
+                    </to>
+                </configuration>
+            </plugin>
 		</plugins>
 	</build>
 
