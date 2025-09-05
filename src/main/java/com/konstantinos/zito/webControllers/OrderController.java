@@ -130,7 +130,7 @@ public class OrderController {
     @DeleteMapping("/{waiterId}/{tableId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Order> deleteTable(@PathVariable("waiterId") String waiterId,
-            @PathVariable("tableId") String tableId) {
+            @PathVariable("tableId") Integer tableId) {
         if (waiterRepository.findById(waiterId).isPresent() && tableRepository.findById(tableId).isPresent()) {
             return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
         } else {

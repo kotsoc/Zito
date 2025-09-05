@@ -1,6 +1,7 @@
 package com.konstantinos.zito.webControllers;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -20,6 +21,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.konstantinos.zito.model.LoginRequest;
 import com.konstantinos.zito.model.LoginResponse;
+import com.konstantinos.zito.model.RefreshResponse;
 import com.konstantinos.zito.model.RestaurantUser;
 import com.konstantinos.zito.repositories.UserRepository;
 import com.konstantinos.zito.security.JwtTokenUtil;
@@ -78,15 +81,16 @@ public class AuthenticationController {
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
                 UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-                ResponseCookie jwtCookie = jwtTokenUtil.generateJwtCookie(userDetails);
 
                 List<String> roles = userDetails.getAuthorities().stream()
                                 .map(item -> item.getAuthority())
                                 .collect(Collectors.toList());
-                // authentication.setDetails(new
-                // WebAuthenticationDetailsSource().buildDetails(request));
+
+                ResponseCookie jwtCookie = jwtTokenUtil.generateRefreshJwtCookie(userDetails);
+                String jwtToken = jwtTokenUtil.generateTokenFromUsername(userDetails.getUsername(), roles);
+
                 return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
-                                .body(new LoginResponse(jwtCookie.getValue(),
+                                .body(new LoginResponse(jwtToken,
                                                 userDetails.getUsername(),
                                                 roles));
         }
@@ -187,9 +191,20 @@ public class AuthenticationController {
          * @return A new Jwt token for the user
          */
         @GetMapping("/refresh")
-        public ResponseEntity<String> refreshToken(@Valid @RequestBody String refreshToken) {
-                // Currently not needed;
-                return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body("");
-        }
+        public ResponseEntity<?> refreshToken(@CookieValue(value = "refreshToken", required = false) String refreshToken) {
+                if (refreshToken == null) {
+                        return ResponseEntity.status(401).body(Map.of("error", "Refresh token missing"));
+                }
 
+                String username = jwtTokenUtil.getUserNameFromJwtToken(refreshToken);
+
+                if (username == null) {
+                        return ResponseEntity.status(401).body(Map.of("error", "Invalid refresh token"));
+                    }
+                
+                String newAccessToken = jwtTokenUtil.generateTokenFromUsername(username,
+                                jwtTokenUtil.getRolesFromJwtToken(refreshToken));
+                // Currently not needed;
+                return ResponseEntity.status(HttpStatus.OK).body(new RefreshResponse(newAccessToken, username));
+        }
 }

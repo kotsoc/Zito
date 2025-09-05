@@ -29,8 +29,12 @@ public class JwtTokenUtil {
     @Value("${zito.app.jwtSecret}")
     private String jwtSecret;
 
-    @Value("${zito.app.jwtExpirationMs}")
+    @Value("${zito.app.jwtExpirationMs: 3600000}")
     private int jwtExpirationMs;
+
+    @Value("${zito.app.jwtRefreshExpirationMs: 86400000}")
+    private int refreshExpirationMs;
+
 
     public String getUserNameFromJwtToken(String token) {
         Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
@@ -63,11 +67,11 @@ public class JwtTokenUtil {
         return false;
     }
 
-    public ResponseCookie generateJwtCookie(UserDetails userDetails) {
-        String jwt = generateTokenFromUsername(userDetails.getUsername(),
+    public ResponseCookie generateRefreshJwtCookie(UserDetails userDetails) {
+        String refreshjwt = generateTokenFromUsername(userDetails.getUsername(),
                 userDetails.getAuthorities().stream().map(item -> item.getAuthority()).collect(Collectors.toList()));
-        ResponseCookie cookie = ResponseCookie.from("jwtCookie", jwt).path("/api").maxAge(24 * 60 * 60).httpOnly(true)
-                .build();
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshjwt).path("/user/refresh").maxAge(refreshExpirationMs/1000).httpOnly(true)
+                .secure(false).sameSite("Strict").build();
         return cookie;
     }
 
@@ -77,6 +81,18 @@ public class JwtTokenUtil {
                 .setSubject(username)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
+                .signWith(privateKey, SignatureAlgorithm.HS256)
+                .claim("roles", authorities)
+                .compact();
+    }
+
+    
+    public String generateRefreshTokenFromUsername(String username, List<String> authorities) {
+        Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+        return Jwts.builder()
+                .setSubject(username)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date((new Date()).getTime() + refreshExpirationMs))
                 .signWith(privateKey, SignatureAlgorithm.HS256)
                 .claim("roles", authorities)
                 .compact();

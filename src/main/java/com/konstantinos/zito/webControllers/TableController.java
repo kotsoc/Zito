@@ -41,7 +41,7 @@ public class TableController {
      * Get all information about a specific waiter
      */
     @GetMapping("/{id}")
-    public ResponseEntity<Table> getTable(@PathVariable("id") String id) {
+    public ResponseEntity<Table> getTable(@PathVariable("id") int id) {
         var res = tableRepository.findById(id);
         if (res.isPresent()) {
             return ResponseEntity.ok(res.get());
@@ -72,7 +72,7 @@ public class TableController {
      * Update an existing Table.
      */
     @PutMapping("/{id}")
-    public ResponseEntity<Table> updateTable(@PathVariable(value = "id") String id,
+    public ResponseEntity<Table> updateTable(@PathVariable(value = "id") int id,
             @Valid @RequestBody Table TableDetails) {
         Optional<Table> Table = tableRepository.findById(id);
         if (Table.isPresent()) {
@@ -84,7 +84,7 @@ public class TableController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteTableById(@PathVariable("id") String id) {
+    public ResponseEntity<Void> deleteTableById(@PathVariable("id") int id) {
         Optional<Table> Table = tableRepository.findById(id);
         if (Table.isPresent()) {
             tableRepository.deleteById(id);

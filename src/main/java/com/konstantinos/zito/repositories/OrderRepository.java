@@ -7,7 +7,6 @@ import java.util.UUID;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
 import com.konstantinos.zito.model.Order;
-import com.konstantinos.zito.model.RestaurantUser;
 
 public interface OrderRepository extends MongoRepository<Order, UUID> {
     List<Order> findByWaiterName(String waiterName);
