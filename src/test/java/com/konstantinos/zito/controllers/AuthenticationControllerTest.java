@@ -10,20 +10,15 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.http.HttpEntity;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -34,12 +29,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 
 import com.konstantinos.zito.model.LoginRequest;
 import com.konstantinos.zito.model.LoginResponse;
@@ -87,7 +77,7 @@ public class AuthenticationControllerTest {
                 userDetails.getAuthorities());
 
         // Create a new ResponseCookie object
-        ResponseCookie jwtCookie = ResponseCookie.from("jwt", "jwt-value").build();
+        ResponseCookie jwtCookie = ResponseCookie.from("refreshToken", "jwt-value").build();
 
         // Mock the authenticationManager.authenticate() method to return the
         // authentication object
@@ -96,7 +86,9 @@ public class AuthenticationControllerTest {
 
         // Mock the jwtTokenUtil.generateJwtCookie() method to return the jwtCookie
         // object
-        when(jwtTokenUtil.generateJwtCookie(any(UserDetails.class))).thenReturn(jwtCookie);
+        when(jwtTokenUtil.generateRefreshJwtCookie(any(UserDetails.class))).thenReturn(jwtCookie);
+
+        when(jwtTokenUtil.generateTokenFromUsername("test", List.of("ROLE_USER"))).thenReturn("token-value");
 
         // Call the signIn() method
         ResponseEntity<LoginResponse> responseEntity = authenticationController.signIn(request);
@@ -110,7 +102,8 @@ public class AuthenticationControllerTest {
         // Verify that the response entity has a LoginResponse object in the body with
         // the correct values
         LoginResponse loginResponse = responseEntity.getBody();
-        assertEquals("jwt-value", loginResponse.getJwtToken());
+        assertEquals("refreshToken=jwt-value", responseEntity.getHeaders().getFirst("Set-Cookie"));
+        assertEquals("token-value", loginResponse.getJwtToken());
         assertEquals("test", loginResponse.getUsername());
         assertEquals(1, loginResponse.getRoles().size());
         assert (loginResponse.getRoles().contains("ROLE_USER"));
