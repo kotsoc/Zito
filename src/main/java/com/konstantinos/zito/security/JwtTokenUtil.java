@@ -68,11 +68,24 @@ public class JwtTokenUtil {
     }
 
     public ResponseCookie generateRefreshJwtCookie(UserDetails userDetails) {
-        String refreshjwt = generateTokenFromUsername(userDetails.getUsername(),
+        String refreshjwt = generateRefreshTokenFromUsername(userDetails.getUsername(),
                 userDetails.getAuthorities().stream().map(item -> item.getAuthority()).collect(Collectors.toList()));
-        ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshjwt).path("/user/refresh").maxAge(refreshExpirationMs/1000).httpOnly(true)
-                .secure(false).sameSite("Strict").build();
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshjwt)
+                .path("/")
+                .maxAge(refreshExpirationMs / 1000)
+                .httpOnly(true)
+                .secure(false)
+                .sameSite("Lax").build();
         return cookie;
+    }
+
+    public ResponseCookie generateClearRefreshCookie() {
+        return ResponseCookie.from("refreshToken", "")
+                .path("/")
+                .httpOnly(true)
+                .secure(false)
+                .maxAge(0)
+                .sameSite("Lax").build();
     }
 
     public String generateTokenFromUsername(String username, List<String> authorities) {
@@ -80,7 +93,7 @@ public class JwtTokenUtil {
         return Jwts.builder()
                 .setSubject(username)
                 .setIssuedAt(new Date())
-                .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
+                .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
                 .signWith(privateKey, SignatureAlgorithm.HS256)
                 .claim("roles", authorities)
                 .compact();

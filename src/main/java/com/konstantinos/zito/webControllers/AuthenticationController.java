@@ -22,6 +22,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -39,6 +40,7 @@ import com.konstantinos.zito.repositories.UserRepository;
 import com.konstantinos.zito.security.JwtTokenUtil;
 import com.konstantinos.zito.services.TokenInvalidatorService;
 
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 
 @RestController
@@ -105,8 +107,13 @@ public class AuthenticationController {
                 var authentication = SecurityContextHolder.getContext().getAuthentication();
                 if (authentication.getCredentials() instanceof String) {
                         this.tokenInvalidatorService.invalidateToken(authentication.getCredentials().toString());
+                        // Clear SecurityContext
+                        SecurityContextHolder.clearContext();
+                        
+                        // Create cookie to clear the refresh token
+                        ResponseCookie refreshCookie = jwtTokenUtil.generateClearRefreshCookie();
                         logger.info("user signed out!");
-                        return ResponseEntity.status(HttpStatus.OK).build();
+                        return ResponseEntity.status(HttpStatus.OK).header(HttpHeaders.SET_COOKIE, refreshCookie.toString()).build();
                 } else {
                         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
                 }
@@ -195,6 +202,9 @@ public class AuthenticationController {
                 if (refreshToken == null) {
                         return ResponseEntity.status(401).body(Map.of("error", "Refresh token missing"));
                 }
+                if (!jwtTokenUtil.validateJwtToken(refreshToken)) {
+                        return ResponseEntity.status(401).body(Map.of("error", "Invalid refresh token"));
+                }
 
                 String username = jwtTokenUtil.getUserNameFromJwtToken(refreshToken);
 
@@ -204,7 +214,6 @@ public class AuthenticationController {
                 
                 String newAccessToken = jwtTokenUtil.generateTokenFromUsername(username,
                                 jwtTokenUtil.getRolesFromJwtToken(refreshToken));
-                // Currently not needed;
                 return ResponseEntity.status(HttpStatus.OK).body(new RefreshResponse(newAccessToken, username));
         }
 }

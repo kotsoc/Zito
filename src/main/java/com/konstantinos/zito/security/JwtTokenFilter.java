@@ -2,7 +2,6 @@ package com.konstantinos.zito.security;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
@@ -12,7 +11,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -47,6 +45,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
 
             final String jwtToken = header.split(" ")[1].trim();
             if (!jwtTokenUtil.validateJwtToken(jwtToken) || tokenInvalidatorService.isInvalid(jwtToken)) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or expired JWT token");
                 filterChain.doFilter(request, response);
                 return;
             }
