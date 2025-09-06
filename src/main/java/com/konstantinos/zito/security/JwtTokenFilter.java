@@ -34,19 +34,29 @@ public class JwtTokenFilter extends OncePerRequestFilter {
     }
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getServletPath();
+        // Skip JWT validation for these endpoints
+        return path.equals("/user/signin")
+            || path.equals("/user/register")
+            || path.equals("/user/refresh")
+            || path.startsWith("/v3/")
+            || path.startsWith("/actuator");
+    }
+
+    @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         try {
             final String header = request.getHeader(HttpHeaders.AUTHORIZATION);
             if (header == null || (header.isEmpty() || !header.startsWith("Bearer "))) {
-                filterChain.doFilter(request, response);
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Invalid or Lacking Authorization");
                 return;
             }
 
             final String jwtToken = header.split(" ")[1].trim();
             if (!jwtTokenUtil.validateJwtToken(jwtToken) || tokenInvalidatorService.isInvalid(jwtToken)) {
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or expired JWT token");
-                filterChain.doFilter(request, response);
                 return;
             }
 
@@ -60,8 +70,9 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             SecurityContextHolder.getContext().setAuthentication(authentication);
         } catch (Exception e) {
             logger.error("Cannot set user authentication: {}", e);
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authnentication Failed");
+            return;
         }
-
         filterChain.doFilter(request, response);
 
     }

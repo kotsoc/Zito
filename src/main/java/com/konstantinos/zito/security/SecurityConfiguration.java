@@ -52,7 +52,7 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthEntryPoint authEntryPoint) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> {})
@@ -61,7 +61,9 @@ public class SecurityConfiguration {
                         .requestMatchers("/actuator/**","/*.png","/index.html", "/manifest.json", "/favicon.ico","/static/**" ,"/css/*", "/js/*",
                                 "/user/signin","/user/register",  "/user/refresh", "/swagger-ui/*", "/v3/**")
                                 .permitAll()
-                        .anyRequest().authenticated());
+                        .anyRequest().authenticated())
+                        .exceptionHandling(ex -> ex
+                            .authenticationEntryPoint(authEntryPoint));
 
         http.authenticationProvider(authenticationProvider());
         http.addFilterBefore(tokenFilter, UsernamePasswordAuthenticationFilter.class);
