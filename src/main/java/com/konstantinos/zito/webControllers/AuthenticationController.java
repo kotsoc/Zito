@@ -203,7 +203,7 @@ public class AuthenticationController {
                         return ResponseEntity.status(401).body(Map.of("error", "Refresh token missing"));
                 }
                 if (!jwtTokenUtil.validateJwtToken(refreshToken)) {
-                        return ResponseEntity.status(401).body(Map.of("error", "Invalid refresh token"));
+                        return ResponseEntity.status(403).body(Map.of("error", "Invalid refresh token"));
                 }
 
                 String username = jwtTokenUtil.getUserNameFromJwtToken(refreshToken);
