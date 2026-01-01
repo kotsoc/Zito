@@ -1,22 +1,23 @@
 package com.konstantinos.zito.controllers;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -169,7 +170,13 @@ public class AuthenticationControllerTest {
     public void testSignOut() {
         // Mock an authentication object with a token
         Authentication authentication = mock(Authentication.class);
+
         when(authentication.getCredentials()).thenReturn("token-value");
+
+        ResponseCookie refreshCookie = ResponseCookie.from("refreshCookie", "")
+        .build();
+        when(jwtTokenUtil.generateClearRefreshCookie()).thenReturn(refreshCookie);
+
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         // Call the signOut() method
@@ -177,6 +184,8 @@ public class AuthenticationControllerTest {
 
         // Verify that the response entity has a status of OK
         assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+        // Verify that the response cookie
+        assertEquals("refreshCookie=", responseEntity.getHeaders().getFirst(HttpHeaders.SET_COOKIE));
 
         // Verify that the tokenInvalidatorService.invalidateToken() method was called with the token
         verify(tokenInvalidatorService, times(1)).invalidateToken("token-value");
