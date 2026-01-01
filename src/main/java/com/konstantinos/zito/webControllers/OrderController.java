@@ -1,7 +1,5 @@
 package com.konstantinos.zito.webControllers;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
@@ -24,7 +22,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.konstantinos.zito.model.Order;
-import com.konstantinos.zito.model.RestaurantUser;
 import com.konstantinos.zito.repositories.ChangedOrderRepository;
 import com.konstantinos.zito.repositories.OrderRepository;
 import com.konstantinos.zito.repositories.TableRepository;

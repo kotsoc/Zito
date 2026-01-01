@@ -16,12 +16,22 @@ public class Table {
     @DBRef
     private List<Order> orders;
 
+    private TableStatus status;
+
     public Table() {
     }
 
     public Table(int id) {
         this.id = id;
         this.orders = new ArrayList<>();
+    }
+
+    public TableStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(TableStatus status) {
+        this.status = status;
     }
 
     public int getId() {
