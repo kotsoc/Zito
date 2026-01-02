@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.konstantinos.zito.model.MenuItem;
-import com.konstantinos.zito.services.MenuItemService;
+import com.konstantinos.zito.services.MenuService;
 
 import jakarta.validation.Valid;
 
@@ -24,9 +24,9 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/v1/menuItems")
 public class MenuItemController {
 
-    final MenuItemService menuItemService;
+    final MenuService menuItemService;
 
-    MenuItemController(MenuItemService menuItemService) {
+    MenuItemController(MenuService menuItemService) {
         this.menuItemService = menuItemService;
     }
 
@@ -36,7 +36,7 @@ public class MenuItemController {
     @GetMapping
     @CrossOrigin
     public ResponseEntity<List<MenuItem>> getMenuItems() {
-        return ResponseEntity.ok(menuItemService.findAll());
+        return ResponseEntity.ok(menuItemService.findAllItems());
     }
 
     /*
@@ -56,7 +56,7 @@ public class MenuItemController {
      */
     @PostMapping
     public ResponseEntity<List<MenuItem>> PostMenuItems(@Valid @RequestBody List<MenuItem> item) {
-        var res = menuItemService.saveAll(item);
+        var res = menuItemService.saveAllItems(item);
         if (res != null) {
             return ResponseEntity.status(HttpStatus.CREATED).body(res);
         } else {
@@ -70,7 +70,7 @@ public class MenuItemController {
     @PutMapping("/{name}")
     public ResponseEntity<MenuItem> UpdateMenuItem(@PathVariable String name, @RequestBody MenuItem item) {
         try {
-            return ResponseEntity.ok(menuItemService.update(name, item));
+            return ResponseEntity.ok(menuItemService.UpdateItem(name, item));
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
         }
@@ -81,7 +81,7 @@ public class MenuItemController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<MenuItem> DeleteMenuItem(@PathVariable String id) {
-        menuItemService.delete(id);
+        menuItemService.deleteItem(id);
         return ResponseEntity.noContent().build();
     }
 
