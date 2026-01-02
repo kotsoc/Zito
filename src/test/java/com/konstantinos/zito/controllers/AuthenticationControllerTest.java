@@ -89,7 +89,7 @@ public class AuthenticationControllerTest {
         // object
         when(jwtTokenUtil.generateRefreshJwtCookie(any(UserDetails.class))).thenReturn(jwtCookie);
 
-        when(jwtTokenUtil.generateTokenFromUsername("test", List.of("ROLE_USER"))).thenReturn("token-value");
+        when(jwtTokenUtil.generateTokenFromEmail("test", List.of("ROLE_USER"))).thenReturn("token-value");
 
         // Call the signIn() method
         ResponseEntity<LoginResponse> responseEntity = authenticationController.signIn(request);
@@ -114,7 +114,7 @@ public class AuthenticationControllerTest {
     public void testCreateRestaurauntUser() {
         // Create a new RestaurantUser object
         RestaurantUser user = new RestaurantUser();
-        user.setUsername("test");
+        user.setEmail("test");
         user.setPassword("password");
         user.setPhoneNumber("12345678");
         user.addRole("ROLE_WAITER");
@@ -130,7 +130,7 @@ public class AuthenticationControllerTest {
 
         // Verify that the response entity has the correct user object in the body
         RestaurantUser createdUser = responseEntity.getBody();
-        assertEquals("test", createdUser.getUsername());
+        assertEquals("test", createdUser.getEmail());
         assertEquals("12345678", createdUser.getPhoneNumber());
         assertEquals(1, createdUser.getRoles().size());
         assertTrue(createdUser.getRoles().contains("ROLE_GUEST"));
@@ -141,13 +141,13 @@ public class AuthenticationControllerTest {
         // Create a new RestaurantUser object with updated values
         RestaurantUser updatedUser = new RestaurantUser();
         updatedUser.setId("123");
-        updatedUser.setUsername("test2");
+        updatedUser.setEmail("test2");
         updatedUser.setPassword("password2");
         updatedUser.setPhoneNumber("98765432");
         updatedUser.addRole("ROLE_WAITER");
         updatedUser.addRole("ROLE_COOK");
 
-        when(userRepository.findByUsername(anyString()))
+        when(userRepository.findByEmail(anyString()))
                 .thenReturn(Optional.of(updatedUser));
 
         // Call the updateWaiter() method
@@ -159,7 +159,7 @@ public class AuthenticationControllerTest {
         // Verify that the response entity has the correct user object in the body
         RestaurantUser updatedResponseUser = responseEntity.getBody();
         assertEquals("123", updatedResponseUser.getId());
-        assertEquals("test2", updatedResponseUser.getUsername());
+        assertEquals("test2", updatedResponseUser.getEmail());
         assertEquals("98765432", updatedResponseUser.getPhoneNumber());
         assertEquals(2, updatedResponseUser.getRoles().size());
         assertTrue(updatedResponseUser.getRoles().contains("ROLE_WAITER"));

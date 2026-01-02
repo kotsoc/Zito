@@ -85,7 +85,7 @@ public class AuthenticationController {
                                 .collect(Collectors.toList());
 
                 ResponseCookie jwtCookie = jwtTokenUtil.generateRefreshJwtCookie(userDetails);
-                String jwtToken = jwtTokenUtil.generateTokenFromUsername(userDetails.getUsername(), roles);
+                String jwtToken = jwtTokenUtil.generateTokenFromEmail(userDetails.getUsername(), roles);
 
                 return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
                                 .body(new LoginResponse(jwtToken,
@@ -127,16 +127,16 @@ public class AuthenticationController {
         @PostMapping("/register")
         public ResponseEntity<RestaurantUser> createRestaurauntUser(@Valid @RequestBody RestaurantUser user) {
                 RestaurantUser newUser = new RestaurantUser();
-                newUser.setUsername(user.getUsername());
+                newUser.setEmail(user.getEmail());
                 newUser.setPassword(passwordEncoder.encode(user.getPassword()));
                 newUser.setPhoneNumber(user.getPhoneNumber());
                 newUser.addRole("ROLE_GUEST");
                 try{
                         userRepository.save(newUser);
-                        logger.info("User {} created sucessfully", newUser.getUsername());
+                        logger.info("User {} created sucessfully", newUser.getEmail());
                         return ResponseEntity.status(HttpStatus.CREATED).body(newUser);
                 } catch (Exception e) {
-                        logger.warn("Could not create User {} : duplicate Username", newUser.getUsername());
+                        logger.warn("Could not create User {} : duplicate Username", newUser.getEmail());
                         return ResponseEntity.status(HttpStatus.CONFLICT).body(new RestaurantUser());
                 }
         }
@@ -153,18 +153,18 @@ public class AuthenticationController {
         @PutMapping("/update")
         @PreAuthorize("hasRole('ADMIN')")
         public ResponseEntity<RestaurantUser> updateWaiter(@Valid @RequestBody RestaurantUser updatedUser) {
-                Optional<RestaurantUser> existingUser = userRepository.findByUsername(updatedUser.getUsername());
+                Optional<RestaurantUser> existingUser = userRepository.findByEmail(updatedUser.getEmail());
                 if (existingUser.isPresent()) {
                         final RestaurantUser updatedWaiter = existingUser.get();
-                        existingUser.get().setUsername(updatedUser.getUsername());
+                        existingUser.get().setEmail(updatedUser.getEmail());
                         existingUser.get().setPhoneNumber(updatedUser.getPhoneNumber());
                         existingUser.get().setRoles(updatedUser.getRoles());
 
                         userRepository.save(existingUser.get());
-                        logger.info("User {} updated sucessfully", updatedUser.getUsername());
+                        logger.info("User {} updated sucessfully", updatedUser.getEmail());
                         return ResponseEntity.ok(updatedWaiter);
                 } else {
-                        logger.warn("User {} was not found", updatedUser.getUsername());
+                        logger.warn("User {} was not found", updatedUser.getEmail());
                         return ResponseEntity.notFound().build();
                 }
         }
@@ -180,7 +180,7 @@ public class AuthenticationController {
         @PreAuthorize("hasRole('ADMIN')")
         public void deleteWaiterById(@PathVariable("username") String username) {
                 logger.info("Deleting user {}", username);
-                var user = userRepository.findByUsername(username);
+                var user = userRepository.findByEmail(username);
                 if (user.isPresent()) {
                         userRepository.deleteById(username);
                 }
@@ -208,7 +208,7 @@ public class AuthenticationController {
                         return ResponseEntity.status(401).body(Map.of("error", "Invalid refresh token"));
                     }
                 
-                String newAccessToken = jwtTokenUtil.generateTokenFromUsername(username,
+                String newAccessToken = jwtTokenUtil.generateTokenFromEmail(username,
                                 jwtTokenUtil.getRolesFromJwtToken(refreshToken));
                 return ResponseEntity.status(HttpStatus.OK).body(new RefreshResponse(newAccessToken, username));
         }

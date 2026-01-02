@@ -31,7 +31,7 @@ public class RestaurantUserController {
      */
     @GetMapping("/{waiterName}")
     public ResponseEntity<RestaurantUser> getWaiter(@PathVariable("waiterName") String name) {
-        var maybeWaiter = waiterRepository.findByUsername(name);
+        var maybeWaiter = waiterRepository.findByEmail(name);
         if (maybeWaiter.isPresent())
             return ResponseEntity.ok(maybeWaiter.get());
         else

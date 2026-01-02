@@ -52,9 +52,9 @@ public class OrderController {
      */
     @GetMapping("/{waiterName}")
     public ResponseEntity<List<Order>> getOrdersByWaiter(@PathVariable("waiterName") String waiterName) {
-        var waiter = waiterRepository.findByUsername(waiterName);
+        var waiter = waiterRepository.findByEmail(waiterName);
         if (waiter.isPresent()) {
-            List<Order> orders = orderRepository.findByWaiterName(waiter.get().getUsername()).stream()
+            List<Order> orders = orderRepository.findByWaiterName(waiter.get().getEmail()).stream()
                     .sorted(Comparator.comparing(Order::getTableNumber)).collect(Collectors.toList());
             return ResponseEntity.ok().body(orders);
         } else {
@@ -82,7 +82,7 @@ public class OrderController {
     @PostMapping("/{waiterName}")
     public ResponseEntity<Order> createOrder(@PathVariable("waiterName") String waiterName,
             @Valid @RequestBody Order order) {
-        var waiter = waiterRepository.findByUsername(waiterName);
+        var waiter = waiterRepository.findByEmail(waiterName);
         if (waiter.isPresent()) {
             order.setWaiterName(waiterName);
             logger.info(String.format("Order received by %s with %d items", waiterName, order.getItems().size()));
@@ -104,7 +104,7 @@ public class OrderController {
 
         if (oldOrder.isPresent()
                 && tableRepository.findById(updatedOrder.getTableNumber()).isPresent()
-                && waiterRepository.existsByUsername(waiterName)) {
+                && waiterRepository.existsByEmail(waiterName)) {
             logger.info(String.format("Updated Order by %s with %d items", waiterName, updatedOrder.getItems().size()));
             // Save the old order reference
             changedOrderRepository.save(oldOrder.get());

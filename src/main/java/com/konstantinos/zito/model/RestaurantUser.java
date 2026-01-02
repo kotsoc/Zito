@@ -7,6 +7,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -22,12 +23,17 @@ public class RestaurantUser {
 
     @Indexed(unique = true)
     @NotBlank
-    @Size(min = 6, max = 45, message = "Username must be between 3 and 20 characters")
-    String username;
+    @Size(min = 6, max = 45, message = "Email must be between 6 and 45 characters")
+    @Email
+    String email;
 
     @Size(min = 5, max = 25, message = "Password must be between 5 and 25 characters")
     @NotBlank
     String password;
+
+    private AuthProvider provider;
+
+    private String providerId;
 
     Set<String> roles;
 
@@ -37,11 +43,11 @@ public class RestaurantUser {
 
     public RestaurantUser(String phoneNumber, String name) {
         this.phoneNumber = phoneNumber;
-        this.username = name;
+        this.email = name;
     }
 
     public RestaurantUser(String name) {
-        this.username = name;
+        this.email = name;
     }
 
     public void addRole(String role) {

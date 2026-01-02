@@ -14,6 +14,8 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
+import com.konstantinos.zito.model.RestaurantUser;
+
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
@@ -68,15 +70,24 @@ public class JwtTokenUtil {
     }
 
     public ResponseCookie generateRefreshJwtCookie(UserDetails userDetails) {
-        String refreshjwt = generateRefreshTokenFromUsername(userDetails.getUsername(),
-                userDetails.getAuthorities().stream().map(item -> item.getAuthority()).collect(Collectors.toList()));
-        ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshjwt)
-                .path("/")
+        return buildRefreshCookie(generateRefreshTokenFromEmail(
+                userDetails.getUsername(),
+                userDetails.getAuthorities().stream().map(a -> a.getAuthority()).toList()));
+    }
+
+    public ResponseCookie generateRefreshJwtCookie(RestaurantUser user) {
+        return buildRefreshCookie(generateRefreshTokenFromEmail(user.getEmail(), user.getRoles().stream().toList()));
+    }
+
+
+    private ResponseCookie buildRefreshCookie(String token) {
+        return ResponseCookie.from("refreshToken", token)
+                .path("/user/refresh")
                 .maxAge(refreshExpirationMs / 1000)
                 .httpOnly(true)
                 .secure(false)
-                .sameSite("Lax").build();
-        return cookie;
+                .sameSite("Lax")
+                .build();
     }
 
     public ResponseCookie generateClearRefreshCookie() {
@@ -88,10 +99,10 @@ public class JwtTokenUtil {
                 .sameSite("Lax").build();
     }
 
-    public String generateTokenFromUsername(String username, List<String> authorities) {
+    public String generateTokenFromEmail(String email, List<String> authorities) {
         Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
         return Jwts.builder()
-                .setSubject(username)
+                .setSubject(email)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
                 .signWith(privateKey, SignatureAlgorithm.HS256)
@@ -99,11 +110,10 @@ public class JwtTokenUtil {
                 .compact();
     }
 
-    
-    public String generateRefreshTokenFromUsername(String username, List<String> authorities) {
+    public String generateRefreshTokenFromEmail(String email, List<String> authorities) {
         Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
         return Jwts.builder()
-                .setSubject(username)
+                .setSubject(email)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + refreshExpirationMs))
                 .signWith(privateKey, SignatureAlgorithm.HS256)

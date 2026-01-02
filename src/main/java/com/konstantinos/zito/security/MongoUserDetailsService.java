@@ -24,16 +24,16 @@ public class MongoUserDetailsService implements UserDetailsService {
     }
 
     @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        RestaurantUser user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException(username));
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        RestaurantUser user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException(email));
         Set<SimpleGrantedAuthority> grantedRoles = new HashSet<>();
 
         user.getRoles().forEach(role -> {
             grantedRoles.add(new SimpleGrantedAuthority(role));
         });
 
-        return new User(user.getUsername(), user.getPassword(), grantedRoles);
+        return new User(user.getEmail(), user.getPassword() == null ? "" : user.getPassword(), grantedRoles);
     }
 
 }
