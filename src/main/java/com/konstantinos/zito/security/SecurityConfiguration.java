@@ -18,6 +18,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
+
+import com.konstantinos.zito.webControllers.OAuth2SuccessHandler;
+
 import java.util.Arrays;
 
 @Configuration
@@ -50,21 +53,48 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthEntryPoint authEntryPoint) throws Exception {
-        http
-                .csrf(csrf -> csrf.disable())
-                .cors(cors -> {})
-                .sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(authz -> authz
-                        .requestMatchers("/actuator/**","/*.png","/index.html", "/manifest.json", "/favicon.ico","/static/**" ,"/css/*", "/js/*",
-                                "/user/signin","/user/register",  "/user/refresh", "/swagger-ui/*", "/v3/**")
-                                .permitAll()
-                        .anyRequest().authenticated())
-                        .exceptionHandling(ex -> ex
-                            .authenticationEntryPoint(authEntryPoint));
+    public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthEntryPoint authEntryPoint,
+                                        OAuth2SuccessHandler oAuth2SuccessHandler) throws Exception {
 
+        http
+            .csrf(csrf -> csrf.disable())
+            .cors(cors -> {})
+            .sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(authz -> authz
+                    .requestMatchers(
+                            "/actuator/**",
+                            "/*.png",
+                            "/index.html",
+                            "/manifest.json",
+                            "/favicon.ico",
+                            "/static/**",
+                            "/css/*",
+                            "/js/*",
+                            "/user/signin",
+                            "/user/register",
+                            "/user/refresh",
+                            "/swagger-ui/*",
+                            "/v3/**")
+                    .permitAll()
+                    .anyRequest().authenticated()
+            )
+            .exceptionHandling(ex -> ex
+                    .authenticationEntryPoint(authEntryPoint)
+            );
+
+        // Add your existing DaoAuthenticationProvider
         http.authenticationProvider(authenticationProvider());
+
+        // Add JWT filter
         http.addFilterBefore(tokenFilter, UsernamePasswordAuthenticationFilter.class);
+
+        // --- NEW: OAuth2 Login ---
+        http.oauth2Login(oauth2 -> oauth2
+            // Optional: a custom login page
+            .loginPage("/user/signin")
+            // Set your success handler for OAuth2 logins
+            .successHandler(oAuth2SuccessHandler)
+        );
 
         return http.build();
     }
