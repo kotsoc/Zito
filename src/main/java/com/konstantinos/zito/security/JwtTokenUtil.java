@@ -92,7 +92,7 @@ public class JwtTokenUtil {
 
     public ResponseCookie generateClearRefreshCookie() {
         return ResponseCookie.from("refreshToken", "")
-                .path("/")
+                .path("/user/refresh")
                 .httpOnly(true)
                 .secure(false)
                 .maxAge(0)
