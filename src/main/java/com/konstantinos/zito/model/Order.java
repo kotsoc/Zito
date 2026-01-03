@@ -1,7 +1,8 @@
 package com.konstantinos.zito.model;
 
+import java.math.BigDecimal;
 import java.util.Date;
-import java.util.Map;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.annotation.Id;
@@ -9,11 +10,15 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 
 @Document(collection = "orders")
 @Data
+@AllArgsConstructor
+@NoArgsConstructor
 public class Order {
 
     @Id
@@ -21,32 +26,23 @@ public class Order {
     private UUID id;
 
     private int tableNumber;
-    private Date order_time;
+    private Date created_At;
     private Date latest_update;
-    private double total;
+
+    private BigDecimal total;
+    private BigDecimal tax;
+    private BigDecimal discount;
+    private BigDecimal tip;
+
+    private List<CartItem> cartItems;
     private boolean paid;
     private OrderStatus status;
 
     @Indexed
     private String waiterName;
 
-    // @DBRef
-    private Map<String, Integer> items;
-
-    public Order() {
-    }
-
-    public Order(int table, Date order_time, double total, String waiterName, Map<String, Integer> items,
-            boolean paid) {
-        this.id = UUID.randomUUID();
-        this.tableNumber = table;
-        this.order_time = order_time;
-        this.total = total;
-        this.waiterName = waiterName;
-        this.items = items;
-        this.paid = paid;
-        this.status = OrderStatus.OPEN;
-    }
+    private String guestEmail; //optional
+    private String guestPhone; //optional
 
     public boolean isPaid() {
         return paid;

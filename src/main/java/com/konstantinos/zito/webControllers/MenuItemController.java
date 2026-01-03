@@ -21,7 +21,7 @@ import jakarta.validation.Valid;
 
 @RestController
 @CrossOrigin
-@RequestMapping("/api/v1/menuItems")
+@RequestMapping("/api/v1/menu-items")
 public class MenuItemController {
 
     final MenuService menuItemService;

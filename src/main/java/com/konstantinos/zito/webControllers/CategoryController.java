@@ -11,12 +11,14 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import java.util.List;
 
 @RestController
+@CrossOrigin
 @RequestMapping("/api/v1/categories")
 public class CategoryController {
     
@@ -48,7 +50,7 @@ public class CategoryController {
      * Get category by id
      */
     @GetMapping("/{id}")
-    public ResponseEntity<Category> getCategoryById(@PathVariable String id) {
+    public ResponseEntity<Category> getCategoryById(@PathVariable int id) {
         return menuItemService.findCategoryById(id)
             .map(ResponseEntity::ok)
             .orElse(ResponseEntity.notFound().build());
@@ -84,7 +86,7 @@ public class CategoryController {
      * Delete a category
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCategory(@PathVariable String id) {
+    public ResponseEntity<Void> deleteCategory(@PathVariable int id) {
         menuItemService.deleteCategory(id);
         return ResponseEntity.noContent().build();
     }

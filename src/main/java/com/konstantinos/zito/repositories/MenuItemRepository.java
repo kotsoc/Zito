@@ -11,6 +11,4 @@ public interface MenuItemRepository extends MongoRepository<MenuItem, String> {
     Optional<MenuItem> findById(String type);
     
     Optional<MenuItem> findByName(String name);
-
-    List<MenuItem> findByType(String type);
 }

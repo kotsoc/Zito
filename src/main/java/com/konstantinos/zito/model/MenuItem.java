@@ -12,18 +12,22 @@ public class MenuItem {
 
     @Indexed
     private String name;
-    @Indexed
-    private String type;
+
     private String description;
     private double price;
+    private int categoryId;
+    private String categoryName;
+    private Boolean available;
     private String imageUrl;
+    private double taxRate;
 
     public MenuItem() {
     }
 
-    public MenuItem(String name, String type, String description, double price, String imageUrl) {
+    public MenuItem(String name, int categoryId, String categoryName, String description, double price, String imageUrl) {
         this.name = name;
-        this.type = type;
+        this.categoryId = categoryId;
+        this.categoryName = categoryName;
         this.description = description;
         this.price = price;
         this.imageUrl = imageUrl;
@@ -42,12 +46,19 @@ public class MenuItem {
         this.name = name;
     }
 
-    public String getType() {
-        return type;
+    public int getCategoryId() {
+        return categoryId;
     }
 
-    public void setType(String type) {
-        this.type = type;
+    public void setCategoryId(int categoryId) {
+        this.categoryId = categoryId;
+    }
+    
+    public String getCategoryName() {
+        return categoryName;
+    }
+    public void setCategoryName(String categoryName) {
+        this.categoryName = categoryName;
     }
 
     public String getDescription() {
@@ -65,6 +76,13 @@ public class MenuItem {
     public void setPrice(double price) {
         this.price = price;
     }
+    public Boolean getAvailable() {
+        return available;
+    }
+
+    public void setAvailable(Boolean available) {
+        this.available = available;
+    }
 
     public String getImageUrl() {
         return imageUrl;
@@ -72,5 +90,13 @@ public class MenuItem {
 
     public void setImageUrl(String urlString) {
         this.imageUrl = urlString;
+    }
+
+    public double getTaxRate() {
+        return taxRate;
+    }
+    
+    public void setTaxRate(double taxRate) {
+        this.taxRate = taxRate;
     }
 }

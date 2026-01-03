@@ -3,6 +3,7 @@ package com.konstantinos.zito.security;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
@@ -55,7 +56,7 @@ public class SecurityConfiguration {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthEntryPoint authEntryPoint,
                                         OAuth2SuccessHandler oAuth2SuccessHandler) throws Exception {
-
+        // JWT will still run before
         http
             .csrf(csrf -> csrf.disable())
             .cors(cors -> {})
@@ -73,8 +74,10 @@ public class SecurityConfiguration {
                             "/user/signin",
                             "/user/register",
                             "/user/refresh",
-                            "/swagger-ui/*",
-                            "/v3/**")
+                            "/swagger-ui/**",
+                            "/v3/api-docs*/**")
+                            .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/menu-items", "/api/v1/categories")
                     .permitAll()
                     .anyRequest().authenticated()
             )
@@ -90,8 +93,6 @@ public class SecurityConfiguration {
 
         // --- NEW: OAuth2 Login ---
         http.oauth2Login(oauth2 -> oauth2
-            // Optional: a custom login page
-            .loginPage("/user/signin")
             // Set your success handler for OAuth2 logins
             .successHandler(oAuth2SuccessHandler)
         );
@@ -105,9 +106,9 @@ public class SecurityConfiguration {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
         // config.setAllowCredentials(true);
-        config.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
+        config.setAllowedOrigins(Arrays.asList("http://localhost:8081", "http://localhost:3000", "http://localhost:80"));
         config.setAllowedMethods(Arrays.asList("GET","POST","PUT","DELETE","OPTIONS"));
-        config.setAllowedHeaders(Arrays.asList("Authorization","Cache-Control","Content-Type","refreshToken", "setCookie"));
+        config.setAllowedHeaders(Arrays.asList("Authorization","Cache-Control","Content-Type","refreshToken"));
         config.setAllowCredentials(true);
         source.registerCorsConfiguration("/**", config);
         return new CorsFilter(source);

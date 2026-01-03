@@ -40,6 +40,8 @@ public class JwtTokenFilter extends OncePerRequestFilter {
         return path.equals("/user/signin")
             || path.equals("/user/register")
             || path.equals("/user/refresh")
+            || path.equals("/api/v1/menu-items")
+            || path.equals("/api/v1/categories")
             || path.startsWith("/v3/")
             || path.startsWith("/actuator");
     }

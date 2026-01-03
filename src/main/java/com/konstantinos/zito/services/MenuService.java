@@ -63,7 +63,7 @@ public class MenuService {
             oldItem.setDescription(menuItem.getDescription());
             oldItem.setName(menuItem.getName());
             oldItem.setPrice(menuItem.getPrice());
-            oldItem.setType(menuItem.getType());
+            oldItem.setCategoryId(menuItem.getCategoryId());
             menuItemCache.put(menuItem.getName(), oldItem);
             return menuItemRepository.save(oldItem);
         } else {
@@ -86,11 +86,11 @@ public class MenuService {
     }
 
     // Find a menuItem price by name
-    public String getItemType(String name) {
+    public int getItemType(String name) {
         try {
-            return menuItemCache.get(name).getType();
+            return menuItemCache.get(name).getCategoryId();
         } catch (Exception e) {
-            return "";
+            return -1;
         }
     }
 
@@ -115,7 +115,7 @@ public class MenuService {
     }
 
     // Find a category by id
-    public Optional<Category> findCategoryById(String id) {
+    public Optional<Category> findCategoryById(int id) {
         return categoryRepository.findById(id);
     }
 
@@ -143,7 +143,7 @@ public class MenuService {
     }
 
     // Delete a category by id
-    public void deleteCategory(String id) {
+    public void deleteCategory(int id) {
         categoryRepository.deleteById(id);
     }
 }

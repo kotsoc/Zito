@@ -8,7 +8,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 public class Category {
 
     @Id
-    private String id;
+    private int id;
 
     @Indexed
     private String name;
@@ -26,7 +26,7 @@ public class Category {
     }
 
     // getters and setters
-    public String getId() {
+    public int getId() {
         return id;
     }
 
