@@ -1,4 +1,4 @@
-package com.konstantinos.zito.controllers;
+package com.konstantinos.zito.webControllers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,11 +33,12 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import com.konstantinos.zito.model.LoginRequest;
-import com.konstantinos.zito.model.LoginResponse;
 import com.konstantinos.zito.model.RestaurantUser;
+import com.konstantinos.zito.model.dto.LoginRequest;
+import com.konstantinos.zito.model.dto.LoginResponse;
 import com.konstantinos.zito.repositories.UserRepository;
 import com.konstantinos.zito.security.JwtTokenUtil;
+import com.konstantinos.zito.security.RestaurantUserDetails;
 import com.konstantinos.zito.services.TokenInvalidatorService;
 import com.konstantinos.zito.webControllers.AuthenticationController;
 
@@ -87,9 +89,9 @@ public class AuthenticationControllerTest {
 
         // Mock the jwtTokenUtil.generateJwtCookie() method to return the jwtCookie
         // object
-        when(jwtTokenUtil.generateRefreshJwtCookie(any(UserDetails.class))).thenReturn(jwtCookie);
+        when(jwtTokenUtil.generateRefreshJwtCookie(any(RestaurantUserDetails.class))).thenReturn(jwtCookie);
 
-        when(jwtTokenUtil.generateTokenFromEmail("test", List.of("ROLE_USER"))).thenReturn("token-value");
+        when(jwtTokenUtil.generateAccessTokenFromUserId(any(UUID.class), "test@mail.com",List.of("ROLE_USER"))).thenReturn("token-value");
 
         // Call the signIn() method
         ResponseEntity<LoginResponse> responseEntity = authenticationController.signIn(request);
@@ -140,7 +142,7 @@ public class AuthenticationControllerTest {
     public void testUpdateWaiter() {
         // Create a new RestaurantUser object with updated values
         RestaurantUser updatedUser = new RestaurantUser();
-        updatedUser.setId("123");
+        updatedUser.setId(UUID.fromString("123"));
         updatedUser.setEmail("test2");
         updatedUser.setPassword("password2");
         updatedUser.setPhoneNumber("98765432");

@@ -1,4 +1,4 @@
-package com.konstantinos.zito.controllers;
+package com.konstantinos.zito.webControllers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -9,6 +9,7 @@ import java.io.StringWriter;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -27,7 +28,7 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.konstantinos.zito.model.AuthProvider;
 import com.konstantinos.zito.model.RestaurantUser;
-import com.konstantinos.zito.model.LoginResponse;
+import com.konstantinos.zito.model.dto.LoginResponse;
 import com.konstantinos.zito.repositories.UserRepository;
 import com.konstantinos.zito.security.JwtTokenUtil;
 import com.konstantinos.zito.webControllers.OAuth2SuccessHandler;
@@ -79,7 +80,7 @@ public class OAuth2SuccessHandlerTest {
         when(userRepository.findByEmail("existing@gmail.com")).thenReturn(Optional.of(existingUser));
 
         // JWT token and refresh cookie
-        when(jwtTokenUtil.generateTokenFromEmail(anyString(), anyList())).thenReturn("jwt-token");
+        when(jwtTokenUtil.generateAccessTokenFromUserId(any(UUID.class), anyString(), anyList())).thenReturn("jwt-token");
         ResponseCookie cookie = ResponseCookie.from("refreshToken", "refresh-jwt").build();
         when(jwtTokenUtil.generateRefreshJwtCookie(any(RestaurantUser.class))).thenReturn(cookie);
 
@@ -118,7 +119,7 @@ public class OAuth2SuccessHandlerTest {
         when(userRepository.save(any(RestaurantUser.class))).thenAnswer(i -> i.getArguments()[0]);
 
         // JWT token and refresh cookie
-        when(jwtTokenUtil.generateTokenFromEmail(anyString(), anyList())).thenReturn("jwt-token-new");
+        when(jwtTokenUtil.generateAccessTokenFromUserId(any(UUID.class), anyString(), anyList())).thenReturn("jwt-token");
         ResponseCookie cookie = ResponseCookie.from("refreshToken", "refresh-jwt-new").build();
         when(jwtTokenUtil.generateRefreshJwtCookie(any(RestaurantUser.class))).thenReturn(cookie);
 
