@@ -4,14 +4,14 @@ import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Optional;
+import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseCookie;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import com.konstantinos.zito.model.RestaurantUser;
@@ -38,15 +38,20 @@ public class JwtTokenUtil {
     private int refreshExpirationMs;
 
 
-    public String getUserNameFromJwtToken(String token) {
+    public UUID getUserId(String token) {
         Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
-        return Jwts.parserBuilder().setSigningKey(privateKey).build().parseClaimsJws(token).getBody().getSubject();
+        return UUID.fromString(Jwts.parserBuilder().setSigningKey(privateKey).build().parseClaimsJws(token).getBody().getSubject());
     }
 
     public List<String> getRolesFromJwtToken(String token) {
         Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
         return (List<String>) Jwts.parserBuilder().setSigningKey(privateKey).build().parseClaimsJws(token).getBody()
                 .get("roles");
+    }
+
+    public Optional<String> getEmailFromJWTToken(String token) {
+        Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+        return Optional.ofNullable(String.valueOf(Jwts.parserBuilder().setSigningKey(privateKey).build().parseClaimsJws(token).getBody().get("email")));
     }
 
     public boolean validateJwtToken(String authToken) {
@@ -65,20 +70,33 @@ public class JwtTokenUtil {
         } catch (IllegalArgumentException e) {
             logger.error("JWT claims string is empty: {}", e.getMessage());
         }
-
         return false;
     }
 
-    public ResponseCookie generateRefreshJwtCookie(UserDetails userDetails) {
-        return buildRefreshCookie(generateRefreshTokenFromEmail(
-                userDetails.getUsername(),
+    public boolean validateJwtRefreshToken(String refreshToken) {
+        try {
+            Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+            var claims = Jwts.parserBuilder().setSigningKey(privateKey).build().parseClaimsJws(refreshToken).getBody();
+            return validateJwtToken(refreshToken) && "refresh".equals(claims.get("type"));
+        } catch (Exception e) {
+            logger.error("Invalid JWT refresh token: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    public ResponseCookie generateRefreshJwtCookie(RestaurantUserDetails userDetails) {
+        return buildRefreshCookie(generateRefreshTokenFromUserId(
+                userDetails.getId(),
+                userDetails.getEmail(),
                 userDetails.getAuthorities().stream().map(a -> a.getAuthority()).toList()));
     }
 
     public ResponseCookie generateRefreshJwtCookie(RestaurantUser user) {
-        return buildRefreshCookie(generateRefreshTokenFromEmail(user.getEmail(), user.getRoles().stream().toList()));
+        return buildRefreshCookie(generateRefreshTokenFromUserId(
+                user.getId(),
+                user.getEmail(),
+                user.getRoles().stream().toList()));
     }
-
 
     private ResponseCookie buildRefreshCookie(String token) {
         return ResponseCookie.from("refreshToken", token)
@@ -99,25 +117,40 @@ public class JwtTokenUtil {
                 .sameSite("Lax").build();
     }
 
-    public String generateTokenFromEmail(String email, List<String> authorities) {
-        Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
-        return Jwts.builder()
-                .setSubject(email)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
-                .signWith(privateKey, SignatureAlgorithm.HS256)
-                .claim("roles", authorities)
-                .compact();
+    public String generateAccessToken(RestaurantUser user) {
+        return generateAccessTokenFromUserId(
+                user.getId(),
+                user.getEmail(),
+                user.getRoles().stream().toList());
     }
 
-    public String generateRefreshTokenFromEmail(String email, List<String> authorities) {
+    public String generateAccessToken(RestaurantUserDetails userDetails) {
+        return generateAccessTokenFromUserId(
+                userDetails.getId(),
+                userDetails.getEmail(),
+                userDetails.getAuthorities().stream().map(a -> a.getAuthority()).toList());
+    }
+
+    public String generateAccessTokenFromUserId(UUID userId, String email, List<String> authorities) {
         Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
         return Jwts.builder()
-                .setSubject(email)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date((new Date()).getTime() + refreshExpirationMs))
-                .signWith(privateKey, SignatureAlgorithm.HS256)
-                .claim("roles", authorities)
-                .compact();
+            .setSubject(userId.toString())
+            .setIssuedAt(new Date())
+            .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
+            .signWith(privateKey, SignatureAlgorithm.HS256)
+            .claim("roles", authorities)
+            .claim("email", email)
+            .compact();
+    }
+
+    public String generateRefreshTokenFromUserId(UUID userId, String email, List<String> authorities) {
+        Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+        return Jwts.builder()
+            .setSubject(userId.toString())
+            .setIssuedAt(new Date())
+            .setExpiration(new Date((new Date()).getTime() + refreshExpirationMs))
+            .signWith(privateKey, SignatureAlgorithm.HS256)
+            .claim("type", "refresh")
+            .compact();
     }
 }

@@ -5,8 +5,6 @@ import java.util.Set;
 
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -24,7 +22,7 @@ public class MongoUserDetailsService implements UserDetailsService {
     }
 
     @Override
-    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+    public RestaurantUserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         RestaurantUser user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException(email));
         Set<SimpleGrantedAuthority> grantedRoles = new HashSet<>();
@@ -33,7 +31,7 @@ public class MongoUserDetailsService implements UserDetailsService {
             grantedRoles.add(new SimpleGrantedAuthority(role));
         });
 
-        return new User(user.getEmail(), user.getPassword() == null ? "" : user.getPassword(), grantedRoles);
+        return new RestaurantUserDetails(user);
     }
 
 }

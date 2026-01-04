@@ -58,14 +58,14 @@ public class OrderService {
     }
 
     // --- Create a new order --- by authenticated user
-    public OrderResponse createOrder(String waiterEmail, CreateOrderRequest request) {
-        var waiterOpt = userRepository.findByEmail(waiterEmail);
+    public OrderResponse createOrder(UUID userId, CreateOrderRequest request) {
+        var waiterOpt = userRepository.findById(userId);
         if (waiterOpt.isEmpty()) {
             throw new RuntimeException("Waiter not found");
         }
 
         Order order = new Order();
-        order.setWaiterId(waiterEmail);
+        order.setWaiterId(userId);
         order.setOrderPointId(request.getOrderPointId());
         order.setCreated_At(new Date());
         order.setLatest_update(new Date());
@@ -77,13 +77,13 @@ public class OrderService {
         return mapToResponse(orderRepository.save(order));
     }
 
-    public List<OrderResponse> getUserOrder(String viewerId) {
+    public List<OrderResponse> getUserOrder(UUID viewerId) {
             return orderRepository.findByWaiterId(viewerId).stream()
                     .map(this::mapToResponse).toList();
     }
 
-    public List<OrderResponse> getOrdersByTable(int tableNumber) {
-        return orderRepository.findByTableNumber(tableNumber).stream()
+    public List<OrderResponse> getOrdersByTable(String orderPointId) {
+        return orderRepository.findByOrderPointId(orderPointId).stream()
                 .map(this::mapToResponse).toList();
     }
 
@@ -103,6 +103,10 @@ public class OrderService {
         Order existingOrder = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
+        if (!existingOrder.getWaiterId().equals(waiterEmail)) {
+            throw new RuntimeException("Waiter mismatch");
+        }
+
         existingOrder.setCartItems(request.getCartItems().stream().map(this::mapToCartItem).toList());
         existingOrder.setLatest_update(new Date());
         existingOrder.setOrderPointId(request.getOrderPointId());
@@ -111,10 +115,11 @@ public class OrderService {
     }
 
     // --- Delete order ---
-    public void deleteOrder(UUID orderId, String waiterEmail) {
+    public void deleteOrder(UUID orderId, UUID waiterId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
-        if (!order.getWaiterId().equals(waiterEmail)) {
+        if (!order.getWaiterId().equals(waiterId)) {
+            //TODO: custom exception
             throw new RuntimeException("Waiter mismatch");
         }
         orderRepository.delete(order);

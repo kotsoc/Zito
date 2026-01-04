@@ -14,7 +14,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.konstantinos.zito.model.Category;
 import com.konstantinos.zito.model.MenuItem;
-import com.konstantinos.zito.model.MenuItemNotFoundException;
+import com.konstantinos.zito.model.exceptions.MenuItemNotFoundException;
 import com.konstantinos.zito.repositories.CategoryRepository;
 import com.konstantinos.zito.repositories.MenuItemRepository;
 

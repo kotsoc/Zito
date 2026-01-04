@@ -2,6 +2,7 @@ package com.konstantinos.zito.security;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
@@ -51,7 +52,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         try {
             final String header = request.getHeader(HttpHeaders.AUTHORIZATION);
-            if (header == null || (header.isEmpty() || !header.startsWith("Bearer "))) {
+            if (header == null || (header.isEmpty() || !header.toLowerCase().startsWith("bearer "))) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN, "Invalid or Lacking Authorization");
                 return;
             }
@@ -62,17 +63,20 @@ public class JwtTokenFilter extends OncePerRequestFilter {
                 return;
             }
 
-            String username = jwtTokenUtil.getUserNameFromJwtToken(jwtToken);
+            UUID userId = jwtTokenUtil.getUserId(jwtToken); // parsed from subject
+            String email = jwtTokenUtil.getEmailFromJWTToken(jwtToken).get();
             List<GrantedAuthority> authorities = jwtTokenUtil.getRolesFromJwtToken(jwtToken).stream()
-                                                .map(role -> new SimpleGrantedAuthority(role))
-                                                .collect(Collectors.toList());
-            var authentication = new UsernamePasswordAuthenticationToken(username, jwtToken, authorities);
+                                        .map(SimpleGrantedAuthority::new)
+                                        .collect(Collectors.toList());
+                                        
+            RestaurantUserDetails principal = new RestaurantUserDetails(userId, email, authorities);
+            var authentication = new UsernamePasswordAuthenticationToken(principal, jwtToken, authorities);
             
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authentication);
         } catch (Exception e) {
             logger.error("Cannot set user authentication: {}", e);
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authnentication Failed");
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication Failed");
             return;
         }
         filterChain.doFilter(request, response);
