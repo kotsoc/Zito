@@ -2,6 +2,7 @@ package com.konstantinos.zito.model.dto;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Min;
@@ -13,7 +14,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class CreateOrderRequest {
     @NotBlank
-    String cartId; // reference to the shopping cart FE generated
+    UUID cartId; // reference to the shopping cart FE generated
 
     @NotBlank
     String orderPointId; // e.g. table number or reservation ID

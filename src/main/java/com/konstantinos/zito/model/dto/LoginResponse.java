@@ -1,4 +1,4 @@
-package com.konstantinos.zito.model;
+package com.konstantinos.zito.model.dto;
 
 import java.util.Collection;
 

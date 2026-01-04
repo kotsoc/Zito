@@ -2,6 +2,7 @@ package com.konstantinos.zito.model;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
@@ -17,7 +18,7 @@ import lombok.Data;
 public class RestaurantUser {
 
     @Id
-    String id;
+    UUID id = UUID.randomUUID();
 
     String phoneNumber;
 
@@ -27,8 +28,6 @@ public class RestaurantUser {
     @Email
     String email;
 
-    @Size(min = 5, max = 25, message = "Password must be between 5 and 25 characters")
-    @NotBlank
     String password;
 
     private AuthProvider provider;

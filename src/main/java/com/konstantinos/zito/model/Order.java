@@ -12,7 +12,6 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import lombok.Data;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -36,9 +35,9 @@ public class Order {
 
     private String orderPointId; // table, bar, takeaway, etc.
     
-    private String waiterId; // Only for orders created by waiters/users
+    private UUID waiterId; // Only for orders created by waiters/users
 
-    private String cartId; // Only for guest orders
+    private UUID cartId; // Only for guest orders
 
     @CreatedDate
     private Date created_At;

@@ -1,4 +1,4 @@
-package com.konstantinos.zito.model;
+package com.konstantinos.zito.model.exceptions;
 
 public class MenuItemNotFoundException extends RuntimeException {
     public MenuItemNotFoundException() {
