@@ -3,6 +3,7 @@ package com.konstantinos.zito.webControllers;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -19,117 +20,142 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.konstantinos.zito.model.Order;
-import com.konstantinos.zito.repositories.ChangedOrderRepository;
-import com.konstantinos.zito.repositories.OrderRepository;
-import com.konstantinos.zito.repositories.TableRepository;
-import com.konstantinos.zito.repositories.UserRepository;
+import com.konstantinos.zito.model.dto.CreateOrderRequest;
+import com.konstantinos.zito.model.dto.OrderResponse;
+import com.konstantinos.zito.services.OrderService;
 
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/v1/order")
+@RequestMapping("/api/v1/orders")
 public class OrderController {
 
-    private final OrderRepository orderRepository;
-    private final UserRepository waiterRepository;
-    private final TableRepository tableRepository;
-    private final ChangedOrderRepository changedOrderRepository;
+    private final OrderService orderService;
     private static final Logger logger = LoggerFactory.getLogger(Authentication.class);
 
-    public OrderController(OrderRepository orderRepository, UserRepository waiterRepository,
-            TableRepository tableRepository, ChangedOrderRepository changedOrderRepository) {
-        this.orderRepository = orderRepository;
-        this.waiterRepository = waiterRepository;
-        this.tableRepository = tableRepository;
-        this.changedOrderRepository = changedOrderRepository;
+    public OrderController(OrderService orderService) {
+        this.orderService = orderService;
     }
+
+    /*
+     * Get a specific order as a guest
+     */
+    @GetMapping("/{orderId}")
+    public ResponseEntity<OrderResponse> getOrder(@PathVariable("orderId") UUID orderId,
+            @RequestParam UUID cartId, @RequestParam(required = false) String guestEmail) {
+                
+            var order = orderService.getGuestOrder(orderId, cartId, Optional.ofNullable(guestEmail));
+            if (order.isPresent()) {
+                return ResponseEntity.ok().body(order.get());
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+    }
+
+    /*
+     * Create a new order as a guest
+     */
+    @PostMapping()
+    public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody CreateOrderRequest order) {
+        try {
+            logger.info(String.format("Order received by %s with %d items", order.getGuestEmail(), order.getCartItems().size()));
+            return ResponseEntity.status(HttpStatus.CREATED).body(orderService.createGuestOrder(order));
+        } catch (Exception e) {
+            logger.error(String.format("Error creating order: %s", e.getMessage()));
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // ------- Waiter Endpoints ------- //
 
     /*
      * Get all orders for a specific waiter
      */
-    @GetMapping("/{waiterName}")
-    public ResponseEntity<List<Order>> getOrdersByWaiter(@PathVariable("waiterName") String waiterName) {
-        var waiter = waiterRepository.findByEmail(waiterName);
-        if (waiter.isPresent()) {
-            List<Order> orders = orderRepository.findByWaiterName(waiter.get().getEmail()).stream()
-                    .sorted(Comparator.comparing(Order::getTableNumber)).collect(Collectors.toList());
-            return ResponseEntity.ok().body(orders);
+    @GetMapping("/waiter")
+    @PreAuthorize("hasAnyRole('WAITER')")
+    public ResponseEntity<List<OrderResponse>> getOrdersByWaiter(Authentication authentication) {
+        String waiterEmail = authentication.getName();
+
+        List<OrderResponse> orders = orderService.getUserOrder(waiterEmail);
+        if(!orders.isEmpty()) {
+           return ResponseEntity.ok().body(orders);
         } else {
-            return ResponseEntity.notFound().build();
-        }
+            logger.info(String.format("No orders found for waiter %s", waiterEmail));
+           return ResponseEntity.notFound().build();
+        }   
     }
 
     /*
-     * Get all orders for a table
+     * Create a new order for a waiter
      */
-    @GetMapping("/table/{tableId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAITER')")
-    public ResponseEntity<List<Order>> getOrdersByTable(@PathVariable("tableId") int tableId) {
-        List<Order> orders = orderRepository.findByTableNumber(tableId);
-        if (!orders.isEmpty()) {
-            return ResponseEntity.ok().body(orders);
-        } else {
-            return ResponseEntity.notFound().build();
-        }
-    }
+    @PostMapping("/waiter")
+    @PreAuthorize("hasAnyRole('WAITER')")
+    public ResponseEntity<OrderResponse> createOrderForWaiter(
+            Authentication authentication,
+            @Valid @RequestBody CreateOrderRequest createOrderRequest) {
 
-    /*
-     * Create a new order, need to correspond to a valid waiter
-     */
-    @PostMapping("/{waiterName}")
-    public ResponseEntity<Order> createOrder(@PathVariable("waiterName") String waiterName,
-            @Valid @RequestBody Order order) {
-        var waiter = waiterRepository.findByEmail(waiterName);
-        if (waiter.isPresent()) {
-            order.setWaiterName(waiterName);
-            logger.info(String.format("Order received by %s with %d items", waiterName, order.getItems().size()));
-            return ResponseEntity.status(HttpStatus.CREATED).body(orderRepository.save(order));
-        } else {
-            logger.error(String.format("User %s was not found", waiterName));
+        String waiterEmail = authentication.getName();
+        try {
+            OrderResponse orderResponse = orderService.createOrder(waiterEmail, createOrderRequest);
+            logger.info(String.format("Order %s created by %s with %d items", 
+                    orderResponse.getId(),waiterEmail, createOrderRequest.getCartItems().size()));
+            return ResponseEntity.status(HttpStatus.CREATED).body(orderResponse);
+        } catch (Exception e) {
+            logger.error(String.format("Failed to create order for user %s", waiterEmail));
             return ResponseEntity.badRequest().build();
         }
     }
 
     /*
-     * Update an order
+     * Update an order (Admin only)
      */
-    @PutMapping("/{waiter}/{orderId}")
+    @PutMapping("/waiter/{orderId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Order> UpdateOrder(@PathVariable("waiterId") String waiterName,
-            @PathVariable("orderId") UUID orderId, @Valid @RequestBody Order updatedOrder) {
-        var oldOrder = orderRepository.findById(orderId);
+    public ResponseEntity<OrderResponse> updateOrder(
+            @PathVariable("orderId") UUID orderId,
+            @Valid @RequestBody CreateOrderRequest updatedOrderRequest,
+            Authentication authentication) {
 
-        if (oldOrder.isPresent()
-                && tableRepository.findById(updatedOrder.getTableNumber()).isPresent()
-                && waiterRepository.existsByEmail(waiterName)) {
-            logger.info(String.format("Updated Order by %s with %d items", waiterName, updatedOrder.getItems().size()));
-            // Save the old order reference
-            changedOrderRepository.save(oldOrder.get());
-            var newOrder = oldOrder.get();
-            newOrder.setItems(updatedOrder.getItems());
-            newOrder.setLatest_update(new Date());
-            newOrder.setPaid(updatedOrder.isPaid());
-            newOrder.setStatus(updatedOrder.getStatus());
-            newOrder.setTableNumber(updatedOrder.getTableNumber());
-            return ResponseEntity.ok(orderRepository.save(updatedOrder));
+        String waiterEmail = authentication.getName();
+
+        OrderResponse updatedOrder = orderService.updateOrder(orderId, waiterEmail, updatedOrderRequest);
+
+        if (updatedOrder != null) {
+            logger.info(String.format("Updating order %s updated by %s, created by %s" , orderId, waiterEmail, updatedOrder.getWaiterId()));
+            return ResponseEntity.status(HttpStatus.CREATED).body(updatedOrder);
         } else {
-            logger.error(String.format("User %s was not found", waiterName));
-            return ResponseEntity.notFound().build();
+            logger.error(String.format("Failed to update order for user %s", waiterEmail));
+            return ResponseEntity.badRequest().build();
         }
     }
 
     /*
-     * Deletes an order, need to correspond to a valid waiter/table
+     * Delete an order (Admin only)
      */
-    @DeleteMapping("/{waiterId}/{tableId}")
+    @DeleteMapping("/waiter/{orderId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Order> deleteTable(@PathVariable("waiterId") String waiterId,
-            @PathVariable("tableId") Integer tableId) {
-        if (waiterRepository.findById(waiterId).isPresent() && tableRepository.findById(tableId).isPresent()) {
-            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    public ResponseEntity<Void> deleteOrder(
+            @PathVariable("orderId") UUID orderId,
+            Authentication authentication) {
+
+        String waiterEmail = authentication.getName();
+        orderService.deleteOrder(orderId, waiterEmail);
+        logger.info(String.format("Delete order %s, deleted by %s", orderId, waiterEmail));
+        return ResponseEntity.noContent().build();
+    }
+
+    /*
+     * Get all orders for a table
+     */
+    @GetMapping("/order-point/{orderPointId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAITER')")
+    public ResponseEntity<List<OrderResponse>> getOrdersByTable(@PathVariable("orderPointId") int orderPointId) {
+        List<OrderResponse> orders = orderService.getOrdersByTable(orderPointId);
+        if (!orders.isEmpty()) {
+            return ResponseEntity.ok().body(orders);
         } else {
             return ResponseEntity.notFound().build();
         }
