@@ -11,8 +11,8 @@ import org.springframework.security.web.authentication.AuthenticationSuccessHand
 import org.springframework.stereotype.Component;
 
 import com.konstantinos.zito.model.AuthProvider;
-import com.konstantinos.zito.model.LoginResponse;
 import com.konstantinos.zito.model.RestaurantUser;
+import com.konstantinos.zito.model.dto.LoginResponse;
 import com.konstantinos.zito.repositories.UserRepository;
 import com.konstantinos.zito.security.JwtTokenUtil;
 
@@ -52,8 +52,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         }
 
         // Generate access token and refresh token cookie
-        String accessToken = jwtTokenUtil.generateTokenFromEmail(user.getEmail(),
-                user.getRoles().stream().toList());
+        String accessToken = jwtTokenUtil.generateAccessToken(user);
         ResponseCookie refreshCookie = jwtTokenUtil.generateRefreshJwtCookie(user);
 
         // Build login response

@@ -1,5 +1,6 @@
 package com.konstantinos.zito.webControllers;
 
+import java.security.Principal;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
@@ -13,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.konstantinos.zito.model.dto.CreateOrderRequest;
 import com.konstantinos.zito.model.dto.OrderResponse;
+import com.konstantinos.zito.security.RestaurantUserDetails;
 import com.konstantinos.zito.services.OrderService;
 
 import jakarta.validation.Valid;
@@ -76,14 +79,13 @@ public class OrderController {
      */
     @GetMapping("/waiter")
     @PreAuthorize("hasAnyRole('WAITER')")
-    public ResponseEntity<List<OrderResponse>> getOrdersByWaiter(Authentication authentication) {
-        String waiterEmail = authentication.getName();
-
-        List<OrderResponse> orders = orderService.getUserOrder(waiterEmail);
+    public ResponseEntity<List<OrderResponse>> getOrdersByWaiter(@AuthenticationPrincipal RestaurantUserDetails currentUser) {
+        UUID waiterId = currentUser.getId();
+        List<OrderResponse> orders = orderService.getUserOrder(waiterId);
         if(!orders.isEmpty()) {
            return ResponseEntity.ok().body(orders);
         } else {
-            logger.info(String.format("No orders found for waiter %s", waiterEmail));
+            logger.info(String.format("No orders found for waiter %s", waiterId));
            return ResponseEntity.notFound().build();
         }   
     }
@@ -97,14 +99,14 @@ public class OrderController {
             Authentication authentication,
             @Valid @RequestBody CreateOrderRequest createOrderRequest) {
 
-        String waiterEmail = authentication.getName();
+        var userDetails = (RestaurantUserDetails) authentication.getPrincipal();
         try {
-            OrderResponse orderResponse = orderService.createOrder(waiterEmail, createOrderRequest);
+            OrderResponse orderResponse = orderService.createOrder(userDetails.getId(), createOrderRequest);
             logger.info(String.format("Order %s created by %s with %d items", 
-                    orderResponse.getId(),waiterEmail, createOrderRequest.getCartItems().size()));
+                    orderResponse.getId(),userDetails.getId(), createOrderRequest.getCartItems().size()));
             return ResponseEntity.status(HttpStatus.CREATED).body(orderResponse);
         } catch (Exception e) {
-            logger.error(String.format("Failed to create order for user %s", waiterEmail));
+            logger.error(String.format("Failed to create order for user %s", userDetails.getId()));
             return ResponseEntity.badRequest().build();
         }
     }
@@ -139,11 +141,10 @@ public class OrderController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteOrder(
             @PathVariable("orderId") UUID orderId,
-            Authentication authentication) {
+            @AuthenticationPrincipal RestaurantUserDetails currentUser) {
 
-        String waiterEmail = authentication.getName();
-        orderService.deleteOrder(orderId, waiterEmail);
-        logger.info(String.format("Delete order %s, deleted by %s", orderId, waiterEmail));
+        orderService.deleteOrder(orderId, currentUser.getId());
+        logger.info(String.format("Delete order %s, deleted by %s", orderId, currentUser.getId()));
         return ResponseEntity.noContent().build();
     }
 
@@ -152,7 +153,7 @@ public class OrderController {
      */
     @GetMapping("/order-point/{orderPointId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'WAITER')")
-    public ResponseEntity<List<OrderResponse>> getOrdersByTable(@PathVariable("orderPointId") int orderPointId) {
+    public ResponseEntity<List<OrderResponse>> getOrdersByTable(@PathVariable("orderPointId") String     orderPointId) {
         List<OrderResponse> orders = orderService.getOrdersByTable(orderPointId);
         if (!orders.isEmpty()) {
             return ResponseEntity.ok().body(orders);

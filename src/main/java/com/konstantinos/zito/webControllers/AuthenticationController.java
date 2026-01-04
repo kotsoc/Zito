@@ -3,6 +3,7 @@ package com.konstantinos.zito.webControllers;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -29,14 +30,16 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.konstantinos.zito.model.LoginRequest;
-import com.konstantinos.zito.model.LoginResponse;
 import com.konstantinos.zito.model.RefreshResponse;
 import com.konstantinos.zito.model.RestaurantUser;
+import com.konstantinos.zito.model.dto.LoginRequest;
+import com.konstantinos.zito.model.dto.LoginResponse;
 import com.konstantinos.zito.repositories.UserRepository;
 import com.konstantinos.zito.security.JwtTokenUtil;
+import com.konstantinos.zito.security.RestaurantUserDetails;
 import com.konstantinos.zito.services.TokenInvalidatorService;
 
+import io.jsonwebtoken.Claims;
 import jakarta.validation.Valid;
 
 @RestController
@@ -73,22 +76,26 @@ public class AuthenticationController {
         public ResponseEntity<LoginResponse> signIn(@Valid @RequestBody LoginRequest request) {
 
                 Authentication authentication = authenticationManager
-                                .authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(),
-                                                request.getPassword()));
+                                .authenticate(new UsernamePasswordAuthenticationToken(
+                                        request.getUsername(),
+                                        request.getPassword()
+                                )
+                        );
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+                RestaurantUserDetails userDetails = (RestaurantUserDetails) authentication.getPrincipal();
 
                 List<String> roles = userDetails.getAuthorities().stream()
                                 .map(item -> item.getAuthority())
-                                .collect(Collectors.toList());
-
+                                .toList();
+                           
+                String accessToken = jwtTokenUtil.generateAccessToken(userDetails);
+                
                 ResponseCookie jwtCookie = jwtTokenUtil.generateRefreshJwtCookie(userDetails);
-                String jwtToken = jwtTokenUtil.generateTokenFromEmail(userDetails.getUsername(), roles);
-
+        
                 return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
-                                .body(new LoginResponse(jwtToken,
+                                .body(new LoginResponse(accessToken,
                                                 userDetails.getUsername(),
                                                 roles));
         }
@@ -128,6 +135,7 @@ public class AuthenticationController {
         public ResponseEntity<RestaurantUser> createRestaurauntUser(@Valid @RequestBody RestaurantUser user) {
                 RestaurantUser newUser = new RestaurantUser();
                 newUser.setEmail(user.getEmail());
+                newUser.setId(java.util.UUID.randomUUID());
                 newUser.setPassword(passwordEncoder.encode(user.getPassword()));
                 newUser.setPhoneNumber(user.getPhoneNumber());
                 newUser.addRole("ROLE_GUEST");
@@ -198,18 +206,22 @@ public class AuthenticationController {
                 if (refreshToken == null) {
                         return ResponseEntity.status(401).body(Map.of("error", "Refresh token missing"));
                 }
-                if (!jwtTokenUtil.validateJwtToken(refreshToken)) {
+                if (!jwtTokenUtil.validateJwtRefreshToken(refreshToken)) {
                         return ResponseEntity.status(403).body(Map.of("error", "Invalid refresh token"));
                 }
 
-                String username = jwtTokenUtil.getUserNameFromJwtToken(refreshToken);
+                UUID userId = jwtTokenUtil.getUserId(refreshToken);
+    
+                var user = userRepository.findById(userId);
 
-                if (username == null) {
-                        return ResponseEntity.status(401).body(Map.of("error", "Invalid refresh token"));
-                    }
-                
-                String newAccessToken = jwtTokenUtil.generateTokenFromEmail(username,
-                                jwtTokenUtil.getRolesFromJwtToken(refreshToken));
-                return ResponseEntity.status(HttpStatus.OK).body(new RefreshResponse(newAccessToken, username));
+                if (user.isEmpty()) {
+                   
+                        return ResponseEntity.status(404).body(Map.of("error", "User not found"));
+                }
+                String newAccessToken = jwtTokenUtil.generateAccessTokenFromUserId(
+                                userId,
+                                user.get().getEmail(),
+                                user.get().getRoles().stream().toList());
+                return ResponseEntity.status(HttpStatus.OK).body(new RefreshResponse(newAccessToken, userId));
         }
 }
