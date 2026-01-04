@@ -13,14 +13,16 @@ import lombok.NoArgsConstructor;
 public class CartItem {
     
     private String menuItemId;         // original menu item reference
-    private String name;               // snapshot of name at time of order
-    private BigDecimal unitPrice;          // snapshot of price at time of order
+    private String name; 
+    
+    // snapshot of name at time of order
+    private BigDecimal unitPrice; 
+    private BigDecimal totalPrice;     // snapshot of price at time of order
     private int quantity;              //total = price * quantity
     private BigDecimal discount;
 
     private String note;              // ✅ free-text user note
-    // Optional future-proofing
-    private List<String> modifiers;  // e.g. ["NO_ONIONS", "EXTRA_CHEESE"]
+    private List<String> modifiers;   // Optional future-proofing
 
 
 }

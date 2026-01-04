@@ -1,7 +1,7 @@
 package com.konstantinos.zito.model;
 
 public enum OrderStatus {
-    PENDING,
+    NEW,
     CONFIRMED,
     PREPARING,
     READY,
