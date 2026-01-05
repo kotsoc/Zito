@@ -34,6 +34,7 @@ import com.konstantinos.zito.model.RefreshResponse;
 import com.konstantinos.zito.model.RestaurantUser;
 import com.konstantinos.zito.model.dto.LoginRequest;
 import com.konstantinos.zito.model.dto.LoginResponse;
+import com.konstantinos.zito.model.dto.RegisterRequest;
 import com.konstantinos.zito.repositories.UserRepository;
 import com.konstantinos.zito.security.JwtTokenUtil;
 import com.konstantinos.zito.security.RestaurantUserDetails;
@@ -132,12 +133,12 @@ public class AuthenticationController {
          * @throws javax.validation.ValidationException
          */
         @PostMapping("/register")
-        public ResponseEntity<RestaurantUser> createRestaurauntUser(@Valid @RequestBody RestaurantUser user) {
+        public ResponseEntity<RestaurantUser> createRestaurauntUser(@Valid @RequestBody RegisterRequest userRequest) {
                 RestaurantUser newUser = new RestaurantUser();
-                newUser.setEmail(user.getEmail());
+                newUser.setEmail(userRequest.getEmail());
                 newUser.setId(java.util.UUID.randomUUID());
-                newUser.setPassword(passwordEncoder.encode(user.getPassword()));
-                newUser.setPhoneNumber(user.getPhoneNumber());
+                newUser.setPassword(passwordEncoder.encode(userRequest.getPassword()));
+                newUser.setPhoneNumber(userRequest.getPhoneNumber());
                 newUser.addRole("ROLE_GUEST");
                 try {
                         userRepository.save(newUser);

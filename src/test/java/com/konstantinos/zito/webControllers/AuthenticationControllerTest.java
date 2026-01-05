@@ -38,6 +38,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import com.konstantinos.zito.model.RestaurantUser;
 import com.konstantinos.zito.model.dto.LoginRequest;
 import com.konstantinos.zito.model.dto.LoginResponse;
+import com.konstantinos.zito.model.dto.RegisterRequest;
 import com.konstantinos.zito.repositories.UserRepository;
 import com.konstantinos.zito.security.JwtTokenUtil;
 import com.konstantinos.zito.security.RestaurantUserDetails;
@@ -122,17 +123,20 @@ public class AuthenticationControllerTest {
     @Test
     public void testCreateRestaurauntUser() {
         // Create a new RestaurantUser object
-        RestaurantUser user = new RestaurantUser();
-        user.setEmail("test");
-        user.setPassword("password");
-        user.setPhoneNumber("12345678");
-        user.addRole("ROLE_WAITER");
+        RegisterRequest userRequest = new RegisterRequest();
+        userRequest.setEmail("test");
+        userRequest.setPassword("password");
+        userRequest.setPhoneNumber("12345678");
+
+        RestaurantUser newUser = new RestaurantUser();
+        newUser.setEmail(userRequest.getEmail());
+        newUser.setPhoneNumber(userRequest.getPhoneNumber());
 
         // Mock the userRepository.save() method to return the user object
-        when(userRepository.save(any(RestaurantUser.class))).thenReturn(user);
+        when(userRepository.save(any(RestaurantUser.class))).thenReturn(newUser);
 
         // Call the createRestaurauntUser() method
-        ResponseEntity<RestaurantUser> responseEntity = authenticationController.createRestaurauntUser(user);
+        ResponseEntity<RestaurantUser> responseEntity = authenticationController.createRestaurauntUser(userRequest);
 
         // Verify that the response entity has a status of CREATED
         assertEquals(HttpStatus.CREATED, responseEntity.getStatusCode());
