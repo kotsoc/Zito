@@ -2,84 +2,131 @@ package com.konstantinos.zito.services;
 
 import com.konstantinos.zito.model.*;
 import com.konstantinos.zito.model.dto.*;
+import com.konstantinos.zito.repositories.MenuItemRepository;
 import com.konstantinos.zito.repositories.OrderRepository;
 import com.konstantinos.zito.repositories.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+
 import java.math.BigDecimal;
 import java.util.*;
+
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 class OrderServiceTest {
 
     private OrderRepository orderRepository;
     private UserRepository userRepository;
+    private MenuItemRepository menuItemRepository;
     private OrderService orderService;
+    private List<CartItemRequest> cartItemsRequest;
+    private OrderItem cartItem1;
+    private OrderItem cartItem2;
+
+
+    public OrderServiceTest() {
+     
+    }   
 
     @BeforeEach
     void setUp() {
         orderRepository = mock(OrderRepository.class);
         userRepository = mock(UserRepository.class);
-        orderService = new OrderService(orderRepository, userRepository);
+        menuItemRepository = mock(MenuItemRepository.class);
+        orderService = new OrderService(orderRepository, userRepository, menuItemRepository);
+
+                CartItemRequest item1 = new CartItemRequest(
+                "menu-item-1", 2, "No onions", List.of("extra cheese")
+        );
+        CartItemRequest item2 = new CartItemRequest(
+                "menu-item-2", 1, "No tomatoes", List.of("extra sauce")
+        );
+        cartItemsRequest = List.of(item1, item2);
+
+        cartItem1 = new OrderItem();
+        cartItem1.setMenuItemId("menu-item-1");
+        cartItem1.setQuantity(2);
+        cartItem1.setUnitPrice(BigDecimal.valueOf(10));
+
+        cartItem2 = new OrderItem();
+        cartItem2.setMenuItemId("menu-item-2");
+        cartItem2.setQuantity(1);
+        cartItem2.setUnitPrice(BigDecimal.valueOf(15));
+
+        MenuItem menuItem1 = new MenuItem();
+        menuItem1.setId("menu-item-1");
+        menuItem1.setPrice(BigDecimal.valueOf(10));
+
+        MenuItem menuItem2 = new MenuItem();
+        menuItem2.setId("menu-item-2");
+        menuItem2.setPrice(BigDecimal.valueOf(15));
+
+        when(menuItemRepository.findById("menu-item-1"))
+                .thenReturn(Optional.of(menuItem1));
+        when(menuItemRepository.findById("menu-item-2"))
+                .thenReturn(Optional.of(menuItem2));
     }
 
     @Test
     void testCreateGuestOrder_Success() {
         CreateOrderRequest request = new CreateOrderRequest();
         request.setOrderPointId("table-1");
-        request.setCartId(UUID.randomUUID());
-        request.setCartItems(List.of(createCartItemRequest()));
+        UUID cartId = UUID.randomUUID();
+        request.setCartId(cartId);
+        request.setCartItems(cartItemsRequest);
         request.setGuestEmail(Optional.of("guest@example.com"));
 
-        Order savedOrder = new Order();
-        savedOrder.setOrderPointId(request.getOrderPointId());
-        savedOrder.setCartId(request.getCartId());
-        savedOrder.setGuestEmail("guest@example.com");
-        savedOrder.setCartItems(List.of(new CartItem()));
-        savedOrder.setPaid(false);
-        savedOrder.setStatus(OrderStatus.NEW);
-
-        when(orderRepository.save(any(Order.class))).thenReturn(savedOrder);
+        ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+        when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
 
         OrderResponse response = orderService.createGuestOrder(request);
 
-        assertNotNull(response);
+        verify(orderRepository).save(orderCaptor.capture());
+        Order savedOrder = orderCaptor.getValue();
+
+        assertEquals("table-1", savedOrder.getOrderPointId());
+        assertEquals(cartId, savedOrder.getCartId());
+        assertEquals("guest@example.com", savedOrder.getGuestEmail());
+        assertEquals(OrderStatus.NEW, savedOrder.getStatus());
+        assertFalse(savedOrder.isPaid());
+        assertEquals(2, savedOrder.getCartItems().size());
+
         assertEquals(savedOrder.getId(), response.getId());
-        assertEquals(savedOrder.getOrderPointId(), response.getOrderPointId());
-        assertFalse(response.isPaid());
-        verify(orderRepository).save(any(Order.class));
     }
 
     @Test
-    void testGetGuestOrder_FoundByOrderIdAndCartId() {
-        UUID orderId = UUID.randomUUID();
+    void testGetGuestOrder_FoundByCartId() {
         UUID cartId = UUID.randomUUID();
         Order order = new Order();
         order.setCartId(cartId);
         order.setGuestEmail("guest@example.com");
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        order.setCartItems(List.of(cartItem1));
 
-        Optional<OrderResponse> result = orderService.getGuestOrder(orderId, cartId, Optional.empty());
+        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+
+        Optional<OrderResponse> result =
+                orderService.getGuestOrder(order.getId(), cartId, Optional.empty());
 
         assertTrue(result.isPresent());
-        assertEquals(orderId, result.get().getId());
+        assertEquals(order.getId(), result.get().getId());
     }
 
     @Test
     void testGetGuestOrder_FoundByGuestEmail() {
-        UUID orderId = UUID.randomUUID();
         UUID cartId = UUID.randomUUID();
         Order order = new Order();
-        order.setCartId(UUID.randomUUID());
+        order.setCartId(cartId);
         order.setGuestEmail("guest@example.com");
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        order.setCartItems(List.of(cartItem1));
+        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
-        Optional<OrderResponse> result = orderService.getGuestOrder(orderId, cartId, Optional.of("guest@example.com"));
+        Optional<OrderResponse> result = orderService.getGuestOrder(order.getId(), cartId, Optional.of("guest@example.com"));
 
         assertTrue(result.isPresent());
-        assertEquals(orderId, result.get().getId());
+        assertEquals(order.getId(), result.get().getId());
     }
 
     @Test
@@ -93,66 +140,58 @@ class OrderServiceTest {
         assertFalse(result.isPresent());
     }
 
-    @Test
+  @Test
     void testCreateOrder_Success() {
-        String waiterEmail = "waiter@example.com";
-        UUID waiterIdString = UUID.fromString("waiter-uuid-string");
+        UUID waiterId = UUID.randomUUID();
         CreateOrderRequest request = new CreateOrderRequest();
         request.setOrderPointId("table-2");
-        request.setCartItems(List.of(createCartItemRequest()));
+        request.setCartItems(cartItemsRequest);
 
-        when(userRepository.findByEmail(waiterEmail)).thenReturn(Optional.of(new RestaurantUser()));
-        Order savedOrder = new Order();
+        when(userRepository.findById(waiterId))
+                .thenReturn(Optional.of(new RestaurantUser()));
 
-        savedOrder.setWaiterId(waiterIdString);
-        savedOrder.setOrderPointId(request.getOrderPointId());
-        savedOrder.setCartItems(List.of(new CartItem()));
-        savedOrder.setPaid(false);
-        savedOrder.setStatus(OrderStatus.NEW);
+        when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
 
-        when(orderRepository.save(any(Order.class))).thenReturn(savedOrder);
+        OrderResponse response = orderService.createOrder(waiterId, request);
 
-        OrderResponse response = orderService.createOrder(waiterIdString, request);
-
-        assertNotNull(response);
-        assertEquals(savedOrder.getId(), response.getId());
-        assertEquals(savedOrder.getWaiterId(), response.getWaiterId());
-        verify(orderRepository).save(any(Order.class));
+        assertNotNull(response.getId());
     }
 
     @Test
     void testCreateOrder_WaiterNotFound() {
-        UUID waiterIdString = UUID.fromString("waiter-uuid-string");
-        when(userRepository.findById(waiterIdString)).thenReturn(Optional.empty());
-        var request = new CreateOrderRequest();
+        UUID waiterId = UUID.randomUUID();
+        when(userRepository.findById(waiterId)).thenReturn(Optional.empty());
 
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> orderService.createOrder(waiterIdString, request));
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> orderService.createOrder(waiterId, new CreateOrderRequest()));
         assertEquals("Waiter not found", ex.getMessage());
     }
 
     @Test
-    void testGetUserOrder_ReturnsOrders() {
-        UUID waiterId = UUID.fromString("waiter-uuid-string");
+    void testGetOrders_ReturnsOrders() {
+        UUID waiterId = UUID.randomUUID();
         Order order = new Order();
         order.setWaiterId(waiterId);
-        order.setCartItems(List.of(new CartItem()));
+        order.setCartItems(List.of(cartItem1));
+
         when(orderRepository.findByWaiterId(waiterId)).thenReturn(List.of(order));
 
         List<OrderResponse> responses = orderService.getUserOrder(waiterId);
 
         assertEquals(1, responses.size());
-        assertEquals(order.getId(), responses.get(0).getId());
+        assertEquals(waiterId, responses.get(0).getWaiterId());
     }
 
     @Test
     void testGetOrdersByTable_ReturnsOrders() {
-        String orderPointId = "table-3";
+        String tableNumber = "table-3";
         Order order = new Order();
-        order.setOrderPointId(orderPointId);
-        order.setCartItems(List.of(new CartItem()));
-        when(orderRepository.findByOrderPointId(orderPointId)).thenReturn(List.of(order));
+        order.setOrderPointId("table-3");
+        order.setCartItems(List.of(cartItem1, cartItem2));
 
-        List<OrderResponse> responses = orderService.getOrdersByTable(orderPointId);
+        when(orderRepository.findByOrderPointId(tableNumber)).thenReturn(List.of(order));
+
+        List<OrderResponse> responses = orderService.getOrdersByTable(tableNumber);
 
         assertEquals(1, responses.size());
         assertEquals(order.getOrderPointId(), responses.get(0).getOrderPointId());
@@ -160,45 +199,54 @@ class OrderServiceTest {
 
     @Test
     void testUpdateOrder_Success() {
-        UUID orderId = UUID.randomUUID();
-        String waiterEmail = "waiter@example.com";
-        UUID waiterId = UUID.fromString("waiter-uuid-string");
+        UUID waiterId = UUID.randomUUID();
         CreateOrderRequest request = new CreateOrderRequest();
         request.setOrderPointId("table-4");
-        request.setCartItems(List.of(createCartItemRequest()));
+        request.setCartItems(cartItemsRequest);
 
         Order existingOrder = new Order();
         existingOrder.setWaiterId(waiterId);
-        existingOrder.setCartItems(new ArrayList<>());
+        existingOrder.setCartItems(new ArrayList<>()); // empty initially
 
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(existingOrder));
+        // Mock MenuItemRepository for price snapshot
+        for (CartItemRequest item : cartItemsRequest) {
+            MenuItem menuItem = new MenuItem();
+            menuItem.setId(item.getMenuItemId());
+            menuItem.setPrice(BigDecimal.valueOf(10)); // just a fixed test price
+            when(menuItemRepository.findById(item.getMenuItemId())).thenReturn(Optional.of(menuItem));
+        }
+
+        when(orderRepository.findById(existingOrder.getId())).thenReturn(Optional.of(existingOrder));
         when(orderRepository.save(any(Order.class))).thenReturn(existingOrder);
 
-        OrderResponse response = orderService.updateOrder(orderId, waiterEmail, request);
+        OrderResponse response = orderService.updateOrder(existingOrder.getId(), waiterId, request);
 
-        assertNotNull(response);
-        assertEquals(orderId, response.getId());
-        assertEquals("table-4", response.getOrderPointId());
         verify(orderRepository).save(existingOrder);
+        assertEquals(existingOrder.getId(), response.getId());
+        assertEquals(waiterId, response.getWaiterId());
+
+        assertEquals("table-4", response.getOrderPointId());
+        assertEquals(cartItemsRequest.size(), response.getCartItems().size());
     }
 
     @Test
     void testUpdateOrder_OrderNotFound() {
         UUID orderId = UUID.randomUUID();
-        String waiterEmail = "waiter@example.com";
+        UUID waiterId = UUID.randomUUID();
         CreateOrderRequest request = new CreateOrderRequest();
         when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
 
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> orderService.updateOrder(orderId, waiterEmail, request));
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> orderService.updateOrder(orderId, waiterId, request));
         assertEquals("Order not found", ex.getMessage());
     }
 
     @Test
     void testDeleteOrder_Success() {
         UUID orderId = UUID.randomUUID();
-        UUID waiterId = UUID.fromString("waiter-uuid-string");
+        UUID waiterId = UUID.randomUUID();
         Order order = new Order();
-        order.setWaiterId(UUID.fromString("waiter-uuid-string"));
+        order.setWaiterId(waiterId);
 
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
@@ -210,35 +258,25 @@ class OrderServiceTest {
     @Test
     void testDeleteOrder_WaiterMismatch() {
         UUID orderId = UUID.randomUUID();
-        UUID waiterId = UUID.fromString("waiter-uuid-string");
+        UUID waiterId = UUID.randomUUID();
         Order order = new Order();
-
-        order.setWaiterId(waiterId);
+        order.setWaiterId(UUID.randomUUID()); // mismatch
 
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> orderService.deleteOrder(orderId, UUID.randomUUID()));
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> orderService.deleteOrder(orderId, waiterId));
         assertEquals("Waiter mismatch", ex.getMessage());
     }
 
     @Test
     void testDeleteOrder_OrderNotFound() {
         UUID orderId = UUID.randomUUID();
-        UUID waiterId = UUID.fromString("waiter-uuid-string");
+        UUID waiterId = UUID.randomUUID();
         when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
 
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> orderService.deleteOrder(orderId, waiterId));
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> orderService.deleteOrder(orderId, waiterId));
         assertEquals("Order not found", ex.getMessage());
-    }
-
-    // --- Helper methods ---
-
-    private CartItemRequest createCartItemRequest() {
-        CartItemRequest req = new CartItemRequest();
-        req.setMenuItemId("menu-item-1");
-        req.setQuantity(2);
-        req.setNote("No onions");
-        req.setModifiers(List.of("extra cheese"));
-        return req;
     }
 }

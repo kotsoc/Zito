@@ -1,5 +1,7 @@
 package com.konstantinos.zito.model;
 
+import java.math.BigDecimal;
+
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -14,7 +16,7 @@ public class MenuItem {
     private String name;
 
     private String description;
-    private double price;
+    private BigDecimal price;
     private int categoryId;
     private String categoryName;
     private Boolean available;
@@ -24,13 +26,17 @@ public class MenuItem {
     public MenuItem() {
     }
 
-    public MenuItem(String name, int categoryId, String categoryName, String description, double price, String imageUrl) {
+    public MenuItem(String name, int categoryId, String categoryName, String description, BigDecimal price, String imageUrl) {
         this.name = name;
         this.categoryId = categoryId;
         this.categoryName = categoryName;
         this.description = description;
         this.price = price;
         this.imageUrl = imageUrl;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 
     // getters and setters
@@ -69,11 +75,11 @@ public class MenuItem {
         this.description = description;
     }
 
-    public double getPrice() {
+    public BigDecimal getPrice() {
         return price;
     }
 
-    public void setPrice(double price) {
+    public void setPrice(BigDecimal price) {
         this.price = price;
     }
     public Boolean getAvailable() {

@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class CartItem {
+public class OrderItem {
     
     private String menuItemId;         // original menu item reference
     private String name; 

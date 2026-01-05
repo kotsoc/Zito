@@ -52,7 +52,7 @@ public class Order {
     private BigDecimal discount;
     private BigDecimal tip;
 
-    private List<CartItem> cartItems;
+    private List<OrderItem> cartItems;
     private boolean paid;
     private OrderStatus status;
 

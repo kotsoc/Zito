@@ -2,6 +2,8 @@ package com.konstantinos.zito.webControllers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 import java.io.PrintWriter;
@@ -80,7 +82,7 @@ public class OAuth2SuccessHandlerTest {
         when(userRepository.findByEmail("existing@gmail.com")).thenReturn(Optional.of(existingUser));
 
         // JWT token and refresh cookie
-        when(jwtTokenUtil.generateAccessTokenFromUserId(any(UUID.class), anyString(), anyList())).thenReturn("jwt-token");
+        when(jwtTokenUtil.generateAccessToken(any(RestaurantUser.class))).thenReturn("jwt-token");
         ResponseCookie cookie = ResponseCookie.from("refreshToken", "refresh-jwt").build();
         when(jwtTokenUtil.generateRefreshJwtCookie(any(RestaurantUser.class))).thenReturn(cookie);
 
@@ -119,7 +121,7 @@ public class OAuth2SuccessHandlerTest {
         when(userRepository.save(any(RestaurantUser.class))).thenAnswer(i -> i.getArguments()[0]);
 
         // JWT token and refresh cookie
-        when(jwtTokenUtil.generateAccessTokenFromUserId(any(UUID.class), anyString(), anyList())).thenReturn("jwt-token");
+        when(jwtTokenUtil.generateAccessToken(any(RestaurantUser.class))).thenReturn("jwt-token-new");
         ResponseCookie cookie = ResponseCookie.from("refreshToken", "refresh-jwt-new").build();
         when(jwtTokenUtil.generateRefreshJwtCookie(any(RestaurantUser.class))).thenReturn(cookie);
 

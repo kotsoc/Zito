@@ -96,17 +96,16 @@ public class OrderController {
     @PostMapping("/waiter")
     @PreAuthorize("hasAnyRole('WAITER')")
     public ResponseEntity<OrderResponse> createOrderForWaiter(
-            Authentication authentication,
+           @AuthenticationPrincipal RestaurantUserDetails currentUser,
             @Valid @RequestBody CreateOrderRequest createOrderRequest) {
 
-        var userDetails = (RestaurantUserDetails) authentication.getPrincipal();
         try {
-            OrderResponse orderResponse = orderService.createOrder(userDetails.getId(), createOrderRequest);
+            OrderResponse orderResponse = orderService.createOrder(currentUser.getId(), createOrderRequest);
             logger.info(String.format("Order %s created by %s with %d items", 
-                    orderResponse.getId(),userDetails.getId(), createOrderRequest.getCartItems().size()));
+                    orderResponse.getId(),currentUser.getId(), createOrderRequest.getCartItems().size()));
             return ResponseEntity.status(HttpStatus.CREATED).body(orderResponse);
         } catch (Exception e) {
-            logger.error(String.format("Failed to create order for user %s", userDetails.getId()));
+            logger.error(String.format("Failed to create order for user %s", currentUser.getId()));
             return ResponseEntity.badRequest().build();
         }
     }
@@ -119,17 +118,15 @@ public class OrderController {
     public ResponseEntity<OrderResponse> updateOrder(
             @PathVariable("orderId") UUID orderId,
             @Valid @RequestBody CreateOrderRequest updatedOrderRequest,
-            Authentication authentication) {
+           @AuthenticationPrincipal RestaurantUserDetails currentUser) {
 
-        String waiterEmail = authentication.getName();
-
-        OrderResponse updatedOrder = orderService.updateOrder(orderId, waiterEmail, updatedOrderRequest);
+        OrderResponse updatedOrder = orderService.updateOrder(orderId, currentUser.getId(), updatedOrderRequest);
 
         if (updatedOrder != null) {
-            logger.info(String.format("Updating order %s updated by %s, created by %s" , orderId, waiterEmail, updatedOrder.getWaiterId()));
+            logger.info(String.format("Updating order %s updated by %s, created by %s" , orderId, currentUser.getId(), updatedOrder.getWaiterId()));
             return ResponseEntity.status(HttpStatus.CREATED).body(updatedOrder);
         } else {
-            logger.error(String.format("Failed to update order for user %s", waiterEmail));
+            logger.error(String.format("Failed to update order for user %s", currentUser.getId()));
             return ResponseEntity.badRequest().build();
         }
     }

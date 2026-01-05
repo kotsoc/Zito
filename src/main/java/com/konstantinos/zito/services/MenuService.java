@@ -1,5 +1,6 @@
 package com.konstantinos.zito.services;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -77,11 +78,11 @@ public class MenuService {
     }
 
     // Find a menuItem price by name
-    public double getItemPrice(String name) {
+    public BigDecimal getItemPrice(String name) {
         try {
             return menuItemCache.get(name).getPrice();
         } catch (Exception e) {
-            return -1L;
+            return BigDecimal.valueOf(-1);
         }
     }
 

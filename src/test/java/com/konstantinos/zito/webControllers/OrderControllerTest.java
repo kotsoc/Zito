@@ -5,12 +5,14 @@ import com.konstantinos.zito.model.dto.CreateOrderRequest;
 import com.konstantinos.zito.model.dto.OrderResponse;
 import com.konstantinos.zito.security.RestaurantUserDetails;
 import com.konstantinos.zito.services.OrderService;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.eq;
@@ -23,19 +25,20 @@ class OrderControllerTest {
 
     @InjectMocks
     private OrderController orderController;
-
-    @Mock
-    private RestaurantUserDetails currentUser;
-
-    @Mock
-    private Authentication authentication;
-
+        
     @Mock
     private CartItemRequest cartItemRequest;
+
+    private RestaurantUserDetails currentUser;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+
+        currentUser = new RestaurantUserDetails(
+                UUID.randomUUID(),
+                "waiter@example.com",
+                List.of(new SimpleGrantedAuthority("ROLE_WAITER")));
 
     }
 
@@ -95,11 +98,9 @@ class OrderControllerTest {
 
     @Test
     void getOrdersByWaiter_found_returnsOrders() {
-        String waiterEmail = "waiter@example.com";
-        UUID waiterId = UUID.fromString("waiter-uuid-string");
+        UUID waiterId = UUID.randomUUID();
         List<OrderResponse> orders = List.of(new OrderResponse(), new OrderResponse());
-        when(currentUser.getId()).thenReturn(waiterId);
-        when(orderService.getUserOrder(waiterId)).thenReturn(orders);
+        when(orderService.getUserOrder(currentUser.getId())).thenReturn(orders);
 
         ResponseEntity<List<OrderResponse>> response = orderController.getOrdersByWaiter(currentUser);
 
@@ -110,8 +111,7 @@ class OrderControllerTest {
     @Test
     void getOrdersByWaiter_notFound_returnsNotFound() {
         String waiterEmail = "waiter@example.com";
-        UUID waiterId = UUID.fromString("waiter-uuid-string");
-        when(authentication.getName()).thenReturn(waiterEmail);
+        UUID waiterId = UUID.randomUUID();
         when(orderService.getUserOrder(waiterId)).thenReturn(Collections.emptyList());
 
         ResponseEntity<List<OrderResponse>> response = orderController.getOrdersByWaiter(currentUser);
@@ -122,16 +122,14 @@ class OrderControllerTest {
 
     @Test
     void createOrderForWaiter_success_returnsCreated() {
-        String waiterEmail = "waiter@example.com";
-        UUID waiterId = UUID.fromString("waiter-uuid-string");
+        UUID waiterId = UUID.randomUUID();
         CreateOrderRequest request = mock(CreateOrderRequest.class);
         when(request.getCartItems()).thenReturn(List.of(cartItemRequest));
         OrderResponse orderResponse = mock(OrderResponse.class);
-        when(orderResponse.getId()).thenReturn(UUID.randomUUID());
-        when(authentication.getName()).thenReturn(waiterEmail);
-        when(orderService.createOrder(waiterId, request)).thenReturn(orderResponse);
+        when(orderResponse.getId()).thenReturn(waiterId);
+        when(orderService.createOrder(currentUser.getId(), request)).thenReturn(orderResponse);
 
-        ResponseEntity<OrderResponse> response = orderController.createOrderForWaiter(authentication, request);
+        ResponseEntity<OrderResponse> response = orderController.createOrderForWaiter(currentUser, request);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         assertEquals(orderResponse, response.getBody());
@@ -139,14 +137,13 @@ class OrderControllerTest {
 
     @Test
     void createOrderForWaiter_exception_returnsBadRequest() {
-        String waiterEmail = "waiter@example.com";
-        UUID waiterId = UUID.fromString("waiter-uuid-string");
+        UUID waiterId = UUID.randomUUID();
         CreateOrderRequest request = mock(CreateOrderRequest.class);
         when(request.getCartItems()).thenReturn(List.of(cartItemRequest));
-        when(authentication.getName()).thenReturn(waiterEmail);
+    
         when(orderService.createOrder(waiterId, request)).thenThrow(new RuntimeException("fail"));
 
-        ResponseEntity<OrderResponse> response = orderController.createOrderForWaiter(authentication, request);
+        ResponseEntity<OrderResponse> response = orderController.createOrderForWaiter(currentUser, request);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertNull(response.getBody());
@@ -155,15 +152,12 @@ class OrderControllerTest {
     @Test
     void updateOrder_success_returnsCreated() {
         UUID orderId = UUID.randomUUID();
-        String waiterEmail = "admin@example.com";
-        UUID waiterId = UUID.fromString("waiter-uuid-string");
         CreateOrderRequest request = mock(CreateOrderRequest.class);
         OrderResponse updatedOrder = mock(OrderResponse.class);
-        when(updatedOrder.getWaiterId()).thenReturn(waiterId);
-        when(authentication.getName()).thenReturn(waiterEmail);
-        when(orderService.updateOrder(orderId, waiterEmail, request)).thenReturn(updatedOrder);
+        when(updatedOrder.getWaiterId()).thenReturn(currentUser.getId());
+        when(orderService.updateOrder(orderId, currentUser.getId(), request)).thenReturn(updatedOrder);
 
-        ResponseEntity<OrderResponse> response = orderController.updateOrder(orderId, request, authentication);
+        ResponseEntity<OrderResponse> response = orderController.updateOrder(orderId, request, currentUser);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         assertEquals(updatedOrder, response.getBody());
@@ -173,11 +167,11 @@ class OrderControllerTest {
     void updateOrder_null_returnsBadRequest() {
         UUID orderId = UUID.randomUUID();
         String waiterEmail = "admin@example.com";
+        UUID waiterId = UUID.randomUUID();
         CreateOrderRequest request = mock(CreateOrderRequest.class);
-        when(authentication.getName()).thenReturn(waiterEmail);
-        when(orderService.updateOrder(orderId, waiterEmail, request)).thenReturn(null);
+        when(orderService.updateOrder(orderId, waiterId, request)).thenReturn(null);
 
-        ResponseEntity<OrderResponse> response = orderController.updateOrder(orderId, request, authentication);
+        ResponseEntity<OrderResponse> response = orderController.updateOrder(orderId, request, currentUser);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertNull(response.getBody());
@@ -186,12 +180,10 @@ class OrderControllerTest {
     @Test
     void deleteOrder_success_returnsNoContent() {
         UUID orderId = UUID.randomUUID();
-        UUID waiterId = UUID.fromString("waiter-uuid-string");
-        when(currentUser.getId()).thenReturn(waiterId);
 
         ResponseEntity<Void> response = orderController.deleteOrder(orderId, currentUser);
 
-        verify(orderService).deleteOrder(orderId, waiterId);
+        verify(orderService).deleteOrder(orderId, currentUser.getId());
         assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
         assertNull(response.getBody());
     }

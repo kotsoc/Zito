@@ -1,9 +1,11 @@
 package com.konstantinos.zito.webControllers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -64,53 +66,58 @@ public class AuthenticationControllerTest {
     private AuthenticationController authenticationController;
 
     @Test
-    public void testSignIn() {
-        // Create a new LoginRequest object
+    void testSignIn_success() {
+        // Arrange
         LoginRequest request = new LoginRequest();
-        request.setUsername("test");
+        request.setUsername("test@mail.com");
         request.setPassword("password");
 
-        // Create a new UserDetails object
-        List<GrantedAuthority> authorities = new ArrayList<>();
-        authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
-        UserDetails userDetails = new User("test", "password", authorities);
+        UUID userId = UUID.randomUUID();
 
-        // Create a new Authentication object
-        Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null,
-                userDetails.getAuthorities());
+        RestaurantUserDetails userDetails = new RestaurantUserDetails(
+                userId,
+                "test@mail.com",
+                List.of(new SimpleGrantedAuthority("ROLE_USER"))
+        );
 
-        // Create a new ResponseCookie object
-        ResponseCookie jwtCookie = ResponseCookie.from("refreshToken", "jwt-value").build();
+        Authentication authentication =
+                new UsernamePasswordAuthenticationToken(
+                        userDetails,
+                        null,
+                        userDetails.getAuthorities()
+                );
 
-        // Mock the authenticationManager.authenticate() method to return the
-        // authentication object
-        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+        ResponseCookie jwtCookie =
+                ResponseCookie.from("refreshToken", "jwt-value").build();
+
+        when(authenticationManager.authenticate(any()))
                 .thenReturn(authentication);
 
-        // Mock the jwtTokenUtil.generateJwtCookie() method to return the jwtCookie
-        // object
-        when(jwtTokenUtil.generateRefreshJwtCookie(any(RestaurantUserDetails.class))).thenReturn(jwtCookie);
+        when(jwtTokenUtil.generateAccessToken(userDetails))
+                .thenReturn("token-value");
 
-        when(jwtTokenUtil.generateAccessTokenFromUserId(any(UUID.class), "test@mail.com",List.of("ROLE_USER"))).thenReturn("token-value");
+        when(jwtTokenUtil.generateRefreshJwtCookie(userDetails))
+                .thenReturn(jwtCookie);
 
-        // Call the signIn() method
-        ResponseEntity<LoginResponse> responseEntity = authenticationController.signIn(request);
+        // Act
+        ResponseEntity<LoginResponse> response =
+                authenticationController.signIn(request);
 
-        // Verify that the response entity has a status of OK
-        assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+        // Assert
+        assertEquals(HttpStatus.OK, response.getStatusCode());
 
-        // Verify that the response entity has the correct jwt cookie in the header
-        assertEquals(jwtCookie.toString(), responseEntity.getHeaders().getFirst(HttpHeaders.SET_COOKIE));
+        assertEquals(
+                jwtCookie.toString(),
+                response.getHeaders().getFirst(HttpHeaders.SET_COOKIE)
+        );
 
-        // Verify that the response entity has a LoginResponse object in the body with
-        // the correct values
-        LoginResponse loginResponse = responseEntity.getBody();
-        assertEquals("refreshToken=jwt-value", responseEntity.getHeaders().getFirst("Set-Cookie"));
-        assertEquals("token-value", loginResponse.getJwtToken());
-        assertEquals("test", loginResponse.getUsername());
-        assertEquals(1, loginResponse.getRoles().size());
-        assert (loginResponse.getRoles().contains("ROLE_USER"));
+        LoginResponse body = response.getBody();
+        assertNotNull(body);
+        assertEquals("token-value", body.getJwtToken());
+        assertEquals("test@mail.com", body.getUsername());
+        assertEquals(List.of("ROLE_USER"), body.getRoles());
     }
+
 
     @Test
     public void testCreateRestaurauntUser() {
@@ -142,7 +149,8 @@ public class AuthenticationControllerTest {
     public void testUpdateWaiter() {
         // Create a new RestaurantUser object with updated values
         RestaurantUser updatedUser = new RestaurantUser();
-        updatedUser.setId(UUID.fromString("123"));
+        UUID userUuid = UUID.randomUUID();
+        updatedUser.setId(userUuid);
         updatedUser.setEmail("test2");
         updatedUser.setPassword("password2");
         updatedUser.setPhoneNumber("98765432");
@@ -160,7 +168,7 @@ public class AuthenticationControllerTest {
 
         // Verify that the response entity has the correct user object in the body
         RestaurantUser updatedResponseUser = responseEntity.getBody();
-        assertEquals("123", updatedResponseUser.getId());
+        assertEquals(userUuid, updatedResponseUser.getId());
         assertEquals("test2", updatedResponseUser.getEmail());
         assertEquals("98765432", updatedResponseUser.getPhoneNumber());
         assertEquals(2, updatedResponseUser.getRoles().size());

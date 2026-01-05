@@ -77,25 +77,24 @@ public class AuthenticationController {
 
                 Authentication authentication = authenticationManager
                                 .authenticate(new UsernamePasswordAuthenticationToken(
-                                        request.getUsername(),
-                                        request.getPassword()
-                                )
-                        );
+                                                request.getUsername(),
+                                                request.getPassword()));
 
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-
-                RestaurantUserDetails userDetails = (RestaurantUserDetails) authentication.getPrincipal();
+                if (!(authentication.getPrincipal() instanceof RestaurantUserDetails userDetails)) {
+                        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+                }
 
                 List<String> roles = userDetails.getAuthorities().stream()
                                 .map(item -> item.getAuthority())
                                 .toList();
-                           
+
                 String accessToken = jwtTokenUtil.generateAccessToken(userDetails);
-                
+
                 ResponseCookie jwtCookie = jwtTokenUtil.generateRefreshJwtCookie(userDetails);
-        
-                return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
-                                .body(new LoginResponse(accessToken,
+
+                return ResponseEntity.ok()
+                        .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
+                        .body(new LoginResponse(accessToken,
                                                 userDetails.getUsername(),
                                                 roles));
         }
@@ -112,11 +111,12 @@ public class AuthenticationController {
                         this.tokenInvalidatorService.invalidateToken(authentication.getCredentials().toString());
                         // Clear SecurityContext
                         SecurityContextHolder.clearContext();
-                        
+
                         // Create cookie to clear the refresh token
                         ResponseCookie refreshCookie = jwtTokenUtil.generateClearRefreshCookie();
                         logger.info("user signed out!");
-                        return ResponseEntity.status(HttpStatus.OK).header(HttpHeaders.SET_COOKIE, refreshCookie.toString()).build();
+                        return ResponseEntity.status(HttpStatus.OK)
+                                        .header(HttpHeaders.SET_COOKIE, refreshCookie.toString()).build();
                 } else {
                         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
                 }
@@ -139,7 +139,7 @@ public class AuthenticationController {
                 newUser.setPassword(passwordEncoder.encode(user.getPassword()));
                 newUser.setPhoneNumber(user.getPhoneNumber());
                 newUser.addRole("ROLE_GUEST");
-                try{
+                try {
                         userRepository.save(newUser);
                         logger.info("User {} created sucessfully", newUser.getEmail());
                         return ResponseEntity.status(HttpStatus.CREATED).body(newUser);
@@ -202,7 +202,8 @@ public class AuthenticationController {
          * @return A new Jwt token for the user
          */
         @GetMapping("/refresh")
-        public ResponseEntity<?> refreshToken(@CookieValue(value = "refreshToken", required = false) String refreshToken) {
+        public ResponseEntity<?> refreshToken(
+                        @CookieValue(value = "refreshToken", required = false) String refreshToken) {
                 if (refreshToken == null) {
                         return ResponseEntity.status(401).body(Map.of("error", "Refresh token missing"));
                 }
@@ -211,11 +212,11 @@ public class AuthenticationController {
                 }
 
                 UUID userId = jwtTokenUtil.getUserId(refreshToken);
-    
+
                 var user = userRepository.findById(userId);
 
                 if (user.isEmpty()) {
-                   
+
                         return ResponseEntity.status(404).body(Map.of("error", "User not found"));
                 }
                 String newAccessToken = jwtTokenUtil.generateAccessTokenFromUserId(
