@@ -95,7 +95,7 @@ public class OAuth2SuccessHandlerTest {
         // Verify response JSON contains JWT token
         ObjectMapper mapper = new ObjectMapper();
         LoginResponse loginResponse = mapper.readValue(responseWriter.toString(), LoginResponse.class);
-        assertEquals("jwt-token", loginResponse.getJwtToken());
+        assertEquals("jwt-token", loginResponse.getAccessToken());
         assertEquals("existing@gmail.com", loginResponse.getUsername());
         assertEquals(1, loginResponse.getRoles().size());
         assert(loginResponse.getRoles().contains("ROLE_USER"));
@@ -134,7 +134,7 @@ public class OAuth2SuccessHandlerTest {
         // Verify response JSON contains JWT token
         ObjectMapper mapper = new ObjectMapper();
         LoginResponse loginResponse = mapper.readValue(responseWriter.toString(), LoginResponse.class);
-        assertEquals("jwt-token-new", loginResponse.getJwtToken());
+        assertEquals("jwt-token-new", loginResponse.getAccessToken());
         assertEquals("newuser@gmail.com", loginResponse.getUsername());
         assertEquals(1, loginResponse.getRoles().size());
         assert(loginResponse.getRoles().contains("ROLE_GUEST"));

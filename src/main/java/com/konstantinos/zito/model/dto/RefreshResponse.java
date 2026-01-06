@@ -1,4 +1,4 @@
-package com.konstantinos.zito.model;
+package com.konstantinos.zito.model.dto;
 
 import java.util.UUID;
 
@@ -8,6 +8,6 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class RefreshResponse {
-    String jwtToken;
+    String accessToken;
     UUID userId;
 }

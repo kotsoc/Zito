@@ -30,18 +30,31 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.konstantinos.zito.model.RefreshResponse;
 import com.konstantinos.zito.model.RestaurantUser;
 import com.konstantinos.zito.model.dto.LoginRequest;
 import com.konstantinos.zito.model.dto.LoginResponse;
+import com.konstantinos.zito.model.dto.RefreshResponse;
 import com.konstantinos.zito.model.dto.RegisterRequest;
 import com.konstantinos.zito.repositories.UserRepository;
 import com.konstantinos.zito.security.JwtTokenUtil;
 import com.konstantinos.zito.security.RestaurantUserDetails;
 import com.konstantinos.zito.services.TokenInvalidatorService;
 
-import io.jsonwebtoken.Claims;
 import jakarta.validation.Valid;
+
+// TODO: Separate Authentication and User Management Controllers -- Make it more RESTful
+/*
+POST   /auth/login
+POST   /auth/register
+GET    /auth/refresh
+POST   /auth/logout
+----
+PUT    /users/{id}
+DELETE /users/{id}
+
+*/
+
+
 
 @RestController
 @Profile("!dev")

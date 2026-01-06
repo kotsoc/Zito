@@ -11,7 +11,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,11 +27,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.konstantinos.zito.model.RestaurantUser;
@@ -43,7 +39,6 @@ import com.konstantinos.zito.repositories.UserRepository;
 import com.konstantinos.zito.security.JwtTokenUtil;
 import com.konstantinos.zito.security.RestaurantUserDetails;
 import com.konstantinos.zito.services.TokenInvalidatorService;
-import com.konstantinos.zito.webControllers.AuthenticationController;
 
 @ExtendWith(MockitoExtension.class)
 public class AuthenticationControllerTest {
@@ -114,7 +109,7 @@ public class AuthenticationControllerTest {
 
         LoginResponse body = response.getBody();
         assertNotNull(body);
-        assertEquals("token-value", body.getJwtToken());
+        assertEquals("token-value", body.getAccessToken());
         assertEquals("test@mail.com", body.getUsername());
         assertEquals(List.of("ROLE_USER"), body.getRoles());
     }
