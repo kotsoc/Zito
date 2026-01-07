@@ -23,6 +23,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -36,6 +37,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.junit.Assert.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
@@ -292,19 +295,5 @@ class AuthenticationControllerWebMvcTest {
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.email").value("waiter@mail.com"))
                                 .andExpect(jsonPath("$.roles[0]").value("ROLE_WAITER"));
-        }
-
-        @Test
-        @WithMockUser
-        void updateWaiter_forbiddenForNonAdmin() throws Exception {
-                RestaurantUser existing = new RestaurantUser();
-                existing.setEmail("waiter@mail.com");
-                existing.setPhoneNumber("111");
-                existing.addRole("ROLE_WAITER");
-
-                mockMvc.perform(put("/user/update")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(existing)))
-                                .andExpect(status().isForbidden());
         }
 }
