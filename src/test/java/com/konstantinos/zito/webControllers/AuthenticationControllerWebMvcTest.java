@@ -108,7 +108,7 @@ class AuthenticationControllerWebMvcTest {
                                 .thenReturn(refreshCookie);
 
                 LoginRequest request = new LoginRequest();
-                request.setUsername("test@mail.com");
+                request.setEmail("test@mail.com");
                 request.setPassword("password");
 
                 mockMvc.perform(post("/user/signin")
@@ -161,7 +161,7 @@ class AuthenticationControllerWebMvcTest {
                 when(userRepository.save(any(RestaurantUser.class)))
                                 .thenReturn(savedUser);
 
-                mockMvc.perform(post("/user/register")
+                mockMvc.perform(post("/user/signup")
                                 .contentType("application/json")
                                 .content(objectMapper.writeValueAsString(request)))
                                 .andExpect(status().isCreated())
@@ -173,7 +173,7 @@ class AuthenticationControllerWebMvcTest {
         void register_duplicateUser_returns409() throws Exception {
                 when(userRepository.save(any())).thenThrow(new RuntimeException());
 
-                mockMvc.perform(post("/user/register")
+                mockMvc.perform(post("/user/signup")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
                                                 {

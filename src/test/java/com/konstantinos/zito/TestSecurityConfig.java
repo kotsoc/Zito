@@ -24,7 +24,7 @@ public class TestSecurityConfig {
     //         .authorizeHttpRequests(auth -> auth
     //             .requestMatchers(
     //                 "/user/signin",
-    //                 "/user/register",
+    //                 "/user/signup",
     //                 "/user/refresh"
     //             ).permitAll()
     //             .anyRequest().authenticated()

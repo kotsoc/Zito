@@ -31,20 +31,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test") // Ensures @Profile("!dev") is active
-@Testcontainers // Automatically starts and stops containers
+// @Testcontainers // Automatically starts and stops containers
 class AuthenticationIntegrationTest {
 
-    // Define the MongoDB container
-    @Container
-    static final MongoDBContainer mongoDBContainer = new MongoDBContainer("mongo:6.0")
-            .withExposedPorts(27017);
+    // // Define the MongoDB container
+    // @Container
+    // static final MongoDBContainer mongoDBContainer = new MongoDBContainer("mongo:6.0")
+    //         .withExposedPorts(27017);
 
             
-    // This dynamically points Spring Data MongoDB to the container's random port
-    @DynamicPropertySource
-    static void setProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.data.mongodb.uri", mongoDBContainer::getReplicaSetUrl);
-    }
+    // // This dynamically points Spring Data MongoDB to the container's random port
+    // @DynamicPropertySource
+    // static void setProperties(DynamicPropertyRegistry registry) {
+    //     registry.add("spring.data.mongodb.uri", mongoDBContainer::getReplicaSetUrl);
+    // }
 
     @Autowired
     private TestRestTemplate restTemplate;
@@ -68,11 +68,11 @@ void fullAuthenticationLifecycle() {
     regRequest.setEmail("refresh@test.com");
     regRequest.setPassword("password123");
     regRequest.setPhoneNumber("123456");
-    restTemplate.postForEntity("/user/register", regRequest, String.class);
+    restTemplate.postForEntity("/user/signup", regRequest, String.class);
 
     // 2. LOGIN
     LoginRequest loginRequest = new LoginRequest();
-    loginRequest.setUsername("refresh@test.com");
+    loginRequest.setEmail("refresh@test.com");
     loginRequest.setPassword("password123");
 
     ResponseEntity<LoginResponse> loginResponse = restTemplate.postForEntity(
@@ -123,10 +123,10 @@ void fullAuthenticationLifecycle() {
         // Create user directly in DB
         RegisterRequest reg = new RegisterRequest();
         reg.setEmail("wrongpass@test.com");
-        restTemplate.postForEntity("/user/register", reg, String.class);
+        restTemplate.postForEntity("/user/signup", reg, String.class);
 
         LoginRequest loginRequest = new LoginRequest();
-        loginRequest.setUsername("wrongpass@test.com");
+        loginRequest.setEmail("wrongpass@test.com");
         loginRequest.setPassword("incorrect");
 
         ResponseEntity<String> response = restTemplate.postForEntity("/user/signin", loginRequest, String.class);

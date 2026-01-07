@@ -44,7 +44,7 @@ import jakarta.validation.Valid;
 // TODO: Separate Authentication and User Management Controllers -- Make it more RESTful
 /*
 POST   /auth/login
-POST   /auth/register
+POST   /auth/signup
 GET    /auth/refresh
 POST   /auth/logout
 ----
@@ -90,7 +90,7 @@ public class AuthenticationController {
 
                 Authentication authentication = authenticationManager
                                 .authenticate(new UsernamePasswordAuthenticationToken(
-                                                request.getUsername(),
+                                                request.getEmail(),
                                                 request.getPassword()));
 
                 if (!(authentication.getPrincipal() instanceof RestaurantUserDetails userDetails)) {
@@ -145,7 +145,7 @@ public class AuthenticationController {
          *         and the created waiter in the body.
          * @throws javax.validation.ValidationException
          */
-        @PostMapping("/register")
+        @PostMapping("/signup")
         public ResponseEntity<RestaurantUser> createRestaurauntUser(@Valid @RequestBody RegisterRequest userRequest) {
                 RestaurantUser newUser = new RestaurantUser();
                 newUser.setEmail(userRequest.getEmail());

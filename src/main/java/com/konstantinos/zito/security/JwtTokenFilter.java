@@ -39,7 +39,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
         String path = request.getServletPath();
         // Skip JWT validation for these endpoints
         return path.equals("/user/signin")
-            || path.equals("/user/register")
+            || path.equals("/user/signup")
             || path.equals("/user/refresh")
             || path.equals("/api/v1/menu-items")
             || path.equals("/api/v1/categories")
