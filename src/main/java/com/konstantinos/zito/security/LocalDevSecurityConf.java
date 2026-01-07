@@ -23,8 +23,11 @@ public class LocalDevSecurityConf implements AuthenticationManager {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.cors().and().authorizeHttpRequests()
-                .anyRequest().authenticated().and().httpBasic(withDefaults());
+        http.cors(cors-> {});
+        
+        http.authorizeHttpRequests(authz -> authz
+                .anyRequest().authenticated()
+        ).httpBasic(withDefaults());
 
         return http.build();
     }
