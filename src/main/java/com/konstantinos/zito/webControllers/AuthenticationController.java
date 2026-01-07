@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +17,6 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -31,6 +29,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.konstantinos.zito.model.RestaurantUser;
+import com.konstantinos.zito.model.dto.UpdateUserRequest;
 import com.konstantinos.zito.model.dto.LoginRequest;
 import com.konstantinos.zito.model.dto.LoginResponse;
 import com.konstantinos.zito.model.dto.RefreshResponse;
@@ -120,20 +119,21 @@ public class AuthenticationController {
 
         @GetMapping("/signout")
         public ResponseEntity<Void> signOut() {
-                var authentication = SecurityContextHolder.getContext().getAuthentication();
-                if (authentication.getCredentials() instanceof String) {
-                        this.tokenInvalidatorService.invalidateToken(authentication.getCredentials().toString());
-                        // Clear SecurityContext
-                        SecurityContextHolder.clearContext();
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-                        // Create cookie to clear the refresh token
-                        ResponseCookie refreshCookie = jwtTokenUtil.generateClearRefreshCookie();
-                        logger.info("user signed out!");
-                        return ResponseEntity.status(HttpStatus.OK)
-                                        .header(HttpHeaders.SET_COOKIE, refreshCookie.toString()).build();
-                } else {
+                if (authentication == null || !(authentication.getCredentials() instanceof String)) {
                         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
                 }
+                
+                this.tokenInvalidatorService.invalidateToken(authentication.getCredentials().toString());
+                // Clear SecurityContext
+                SecurityContextHolder.clearContext();
+
+                // Create cookie to clear the refresh token
+                ResponseCookie refreshCookie = jwtTokenUtil.generateClearRefreshCookie();
+                logger.info("user signed out!");
+                return ResponseEntity.status(HttpStatus.OK)
+                                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString()).build();
         }
 
         /**
@@ -159,52 +159,7 @@ public class AuthenticationController {
                         return ResponseEntity.status(HttpStatus.CREATED).body(newUser);
                 } catch (Exception e) {
                         logger.warn("Could not create User {} : duplicate Username", newUser.getEmail());
-                        return ResponseEntity.status(HttpStatus.CONFLICT).body(new RestaurantUser());
-                }
-        }
-
-        /**
-         * 
-         * Update an existing user by persisting the given {@code RestaurantUser},
-         * updating is the only way of changing/adding the role of a user
-         * 
-         * @param user The {@code RestaurantUser} object to be persisted.
-         * @return A {@code ResponseEntity} with a status of the opeartion
-         * @throws javax.validation.ValidationException
-         */
-        @PutMapping("/update")
-        @PreAuthorize("hasRole('ADMIN')")
-        public ResponseEntity<RestaurantUser> updateWaiter(@Valid @RequestBody RestaurantUser updatedUser) {
-                Optional<RestaurantUser> existingUser = userRepository.findByEmail(updatedUser.getEmail());
-                if (existingUser.isPresent()) {
-                        final RestaurantUser updatedWaiter = existingUser.get();
-                        existingUser.get().setEmail(updatedUser.getEmail());
-                        existingUser.get().setPhoneNumber(updatedUser.getPhoneNumber());
-                        existingUser.get().setRoles(updatedUser.getRoles());
-
-                        userRepository.save(existingUser.get());
-                        logger.info("User {} updated sucessfully", updatedUser.getEmail());
-                        return ResponseEntity.ok(updatedWaiter);
-                } else {
-                        logger.warn("User {} was not found", updatedUser.getEmail());
-                        return ResponseEntity.notFound().build();
-                }
-        }
-
-        /**
-         * 
-         * Attempts to delete a user if it exists
-         * 
-         * @param user The {@code RestaurantUser} object to be persisted.
-         * @return A {@code ResponseEntity} with a status of the opeartion
-         */
-        @DeleteMapping("/{username}")
-        @PreAuthorize("hasRole('ADMIN')")
-        public void deleteWaiterById(@PathVariable("username") String username) {
-                logger.info("Deleting user {}", username);
-                var user = userRepository.findByEmail(username);
-                if (user.isPresent()) {
-                        userRepository.deleteById(username);
+                        return ResponseEntity.status(HttpStatus.CONFLICT).body(null);
                 }
         }
 
@@ -238,5 +193,52 @@ public class AuthenticationController {
                                 user.get().getEmail(),
                                 user.get().getRoles().stream().toList());
                 return ResponseEntity.status(HttpStatus.OK).body(new RefreshResponse(newAccessToken, userId));
+        }
+
+        /////----------  User Management Endpoints ------------/////
+
+        /**
+         * 
+         * Attempts to delete a user if it exists
+         * 
+         * @param user The {@code RestaurantUser} object to be persisted.
+         * @return A {@code ResponseEntity} with a status of the opeartion
+         */
+        @DeleteMapping("/{username}")
+        @PreAuthorize("hasRole('ADMIN')")
+        public void deleteWaiterById(@PathVariable("username") String username) {
+                logger.info("Deleting user {}", username);
+                var user = userRepository.findByEmail(username);
+                if (user.isPresent()) {
+                        userRepository.deleteById(user.get().getId());
+                }
+        }
+
+        /**
+         * 
+         * Update an existing user by persisting the given {@code RestaurantUser},
+         * updating is the only way of changing/adding the role of a user
+         * 
+         * @param user The {@code RestaurantUser} object to be persisted.
+         * @return A {@code ResponseEntity} with a status of the opeartion
+         * @throws javax.validation.ValidationException
+         */
+        @PutMapping("/update")
+        @PreAuthorize("hasRole('ADMIN')")
+        public ResponseEntity<RestaurantUser> updateWaiter(@Valid @RequestBody UpdateUserRequest updatedUser) {
+                Optional<RestaurantUser> existingUser = userRepository.findByEmail(updatedUser.getEmail());
+                if (existingUser.isPresent()) {
+                        final RestaurantUser updatedWaiter = existingUser.get();
+                        existingUser.get().setEmail(updatedUser.getEmail());
+                        existingUser.get().setPhoneNumber(updatedUser.getPhoneNumber());
+                        existingUser.get().setRoles(updatedUser.getRoles());
+
+                        userRepository.save(existingUser.get());
+                        logger.info("User {} updated sucessfully", updatedUser.getEmail());
+                        return ResponseEntity.ok(updatedWaiter);
+                } else {
+                        logger.warn("User {} was not found", updatedUser.getEmail());
+                        return ResponseEntity.notFound().build();
+                }
         }
 }

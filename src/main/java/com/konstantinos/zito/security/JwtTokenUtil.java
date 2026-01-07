@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import javax.crypto.SecretKey;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,12 +18,17 @@ import org.springframework.stereotype.Component;
 
 import com.konstantinos.zito.model.RestaurantUser;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.UnsupportedJwtException;
+import io.jsonwebtoken.SignatureException;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 
 @Component
 @Profile("!dev")
@@ -37,36 +44,42 @@ public class JwtTokenUtil {
     @Value("${zito.app.jwtRefreshExpirationMs: 86400000}")
     private int refreshExpirationMs;
 
+    private SecretKey key;
+    private JwtParser jwtParser;
 
-    public UUID getUserId(String token) {
-        Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
-        return UUID.fromString(Jwts.parserBuilder().setSigningKey(privateKey).build().parseClaimsJws(token).getBody().getSubject());
+    @PostConstruct
+    public void init() {
+        // Generate the key once to save CPU cycles on every request
+        this.key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+        // Reusable parser is thread-safe
+        this.jwtParser = Jwts.parserBuilder().setSigningKey(key).build();
     }
 
+ private Claims getClaims(String token) {
+        return jwtParser.parseClaimsJws(token).getBody();
+    }
+
+    public UUID getUserId(String token) {
+        return UUID.fromString(getClaims(token).getSubject());
+    }
+
+    @SuppressWarnings("unchecked")
     public List<String> getRolesFromJwtToken(String token) {
-        Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
-        return (List<String>) Jwts.parserBuilder().setSigningKey(privateKey).build().parseClaimsJws(token).getBody()
-                .get("roles");
+        return (List<String>) getClaims(token).get("roles");
     }
 
     public Optional<String> getEmailFromJWTToken(String token) {
-        Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
-        return Optional.ofNullable(String.valueOf(Jwts.parserBuilder().setSigningKey(privateKey).build().parseClaimsJws(token).getBody().get("email")));
+        return Optional.ofNullable((String) getClaims(token).get("email"));
     }
 
     public boolean validateJwtToken(String authToken) {
         try {
-            Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
-            Jwts.parserBuilder().setSigningKey(privateKey).build().parseClaimsJws(authToken);
+            Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(authToken);
             return true;
         } catch (SecurityException e) {
             logger.error("Invalid JWT signature: {}", e.getMessage());
-        } catch (MalformedJwtException e) {
-            logger.error("Invalid JWT token: {}", e.getMessage());
-        } catch (ExpiredJwtException e) {
-            logger.error("JWT token is expired: {}", e.getMessage());
-        } catch (UnsupportedJwtException e) {
-            logger.error("JWT token is unsupported: {}", e.getMessage());
+        } catch (UnsupportedJwtException | MalformedJwtException | SignatureException | ExpiredJwtException e) {
+        logger.error("Invalid JWT: {}", e.getMessage());
         } catch (IllegalArgumentException e) {
             logger.error("JWT claims string is empty: {}", e.getMessage());
         }
@@ -75,10 +88,9 @@ public class JwtTokenUtil {
 
     public boolean validateJwtRefreshToken(String refreshToken) {
         try {
-            Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
-            var claims = Jwts.parserBuilder().setSigningKey(privateKey).build().parseClaimsJws(refreshToken).getBody();
-            return validateJwtToken(refreshToken) && "refresh".equals(claims.get("type"));
-        } catch (Exception e) {
+            Claims claims = getClaims(refreshToken);
+            return "refresh".equals(claims.get("type"));
+        } catch (JwtException | IllegalArgumentException e) {
             logger.error("Invalid JWT refresh token: {}", e.getMessage());
             return false;
         }
@@ -131,25 +143,23 @@ public class JwtTokenUtil {
                 userDetails.getAuthorities().stream().map(a -> a.getAuthority()).toList());
     }
 
-    public String generateAccessTokenFromUserId(UUID userId, String email, List<String> authorities) {
-        Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+public String generateAccessTokenFromUserId(UUID userId, String email, List<String> authorities) {
         return Jwts.builder()
             .setSubject(userId.toString())
             .setIssuedAt(new Date())
             .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
-            .signWith(privateKey, SignatureAlgorithm.HS256)
             .claim("roles", authorities)
             .claim("email", email)
+            .signWith(key, SignatureAlgorithm.HS256)
             .compact();
     }
 
     public String generateRefreshTokenFromUserId(UUID userId, String email, List<String> authorities) {
-        Key privateKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
         return Jwts.builder()
             .setSubject(userId.toString())
             .setIssuedAt(new Date())
             .setExpiration(new Date((new Date()).getTime() + refreshExpirationMs))
-            .signWith(privateKey, SignatureAlgorithm.HS256)
+            .signWith(key, SignatureAlgorithm.HS256)
             .claim("type", "refresh")
             .compact();
     }

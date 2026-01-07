@@ -1,8 +1,10 @@
 package com.konstantinos.zito.security;
 
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.Ordered;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -21,6 +23,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
 import com.konstantinos.zito.webControllers.OAuth2SuccessHandler;
+
+import jakarta.servlet.FilterRegistration;
 
 import java.util.Arrays;
 
@@ -55,35 +59,37 @@ public class SecurityConfiguration {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthEntryPoint authEntryPoint,
-                                        OAuth2SuccessHandler oAuth2SuccessHandler) throws Exception {
+            OAuth2SuccessHandler oAuth2SuccessHandler) throws Exception {
         // JWT will still run before
-        http
-            .csrf(csrf -> csrf.disable())
-            .cors(cors -> {})
-            .sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(authz -> authz
-                    .requestMatchers(
-                            "/actuator/**",
-                            "/*.png",
-                            "/index.html",
-                            "/manifest.json",
-                            "/favicon.ico",
-                            "/static/**",
-                            "/css/*",
-                            "/js/*",
-                            "/user/signin",
-                            "/user/register",
-                            "/user/refresh",
-                            "/swagger-ui/**",
-                            "/v3/api-docs*/**")
-                            .permitAll()
-                    .requestMatchers(HttpMethod.GET, "/api/v1/menu-items", "/api/v1/categories")
-                    .permitAll()
-                    .anyRequest().authenticated()
-            )
-            .exceptionHandling(ex -> ex
-                    .authenticationEntryPoint(authEntryPoint)
-            );
+        http.csrf(csrf -> csrf.disable());
+
+        http.sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+        // Disable default security context saving - stop oauth from making sessons
+        http.securityContext(securityContext ->
+          securityContext.requireExplicitSave(false)
+        );
+
+        http.authorizeHttpRequests(authz -> authz
+                .requestMatchers(
+                        "/actuator/**",
+                        "/*.png",
+                        "/index.html",
+                        "/manifest.json",
+                        "/favicon.ico",
+                        "/static/**",
+                        "/css/*",
+                        "/js/*",
+                        "/user/signin",
+                        "/user/register",
+                        "/user/refresh",
+                        "/swagger-ui/**",
+                        "/v3/api-docs*/**")
+                .permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/menu-items", "/api/v1/categories")
+                .permitAll()
+                .anyRequest().authenticated())
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(authEntryPoint));
 
         // Add your existing DaoAuthenticationProvider
         http.authenticationProvider(authenticationProvider());
@@ -93,25 +99,30 @@ public class SecurityConfiguration {
 
         // --- NEW: OAuth2 Login ---
         http.oauth2Login(oauth2 -> oauth2
-            // Set your success handler for OAuth2 logins
-            .successHandler(oAuth2SuccessHandler)
-        );
+                // Set your success handler for OAuth2 logins
+                .successHandler(oAuth2SuccessHandler));
 
         return http.build();
     }
 
     // Used by Spring Security if CORS is enabled.
     @Bean
-    public CorsFilter corsFilter() {
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    public FilterRegistrationBean<CorsFilter> corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
         // config.setAllowCredentials(true);
         config.setAllowedOrigins(Arrays.asList("http://localhost:8081", "http://localhost:3000", "http://localhost:80"));
         config.setAllowedMethods(Arrays.asList("GET","POST","PUT","DELETE","OPTIONS"));
         config.setAllowedHeaders(Arrays.asList("Authorization","Cache-Control","Content-Type","refreshToken"));
         config.setAllowCredentials(true);
+        
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
-        return new CorsFilter(source);
+
+        FilterRegistrationBean<CorsFilter> bean =
+        new FilterRegistrationBean<>(new CorsFilter(source));
+
+        bean.setOrder(Ordered.HIGHEST_PRECEDENCE); // 🔑 critical
+        return bean;
     }
 
     @Bean
