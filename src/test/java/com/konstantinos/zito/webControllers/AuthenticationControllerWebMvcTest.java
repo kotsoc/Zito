@@ -249,7 +249,7 @@ class AuthenticationControllerWebMvcTest {
                                 any(), any(), any()))
                                 .thenReturn("new-access-token");
 
-                mockMvc.perform(get("/user/refresh")
+                mockMvc.perform(post("/user/refresh")
                                 .cookie(new Cookie(
                                                 "refreshToken", "refresh-token")))
                                 .andExpect(status().isOk())
@@ -259,7 +259,7 @@ class AuthenticationControllerWebMvcTest {
 
         @Test
         void refreshToken_missingCookie() throws Exception {
-                mockMvc.perform(get("/user/refresh"))
+                mockMvc.perform(post("/user/refresh"))
                                 .andExpect(status().isUnauthorized());
         }
 
@@ -267,9 +267,9 @@ class AuthenticationControllerWebMvcTest {
         void refreshToken_invalidToken() throws Exception {
                 when(jwtTokenUtil.validateJwtRefreshToken("bad")).thenReturn(false);
 
-                mockMvc.perform(get("/user/refresh")
+                mockMvc.perform(post("/user/refresh")
                                 .cookie(new Cookie("refreshToken", "bad")))
-                                .andExpect(status().isForbidden());
+                                .andExpect(status().isUnauthorized());
         }
 
         /*

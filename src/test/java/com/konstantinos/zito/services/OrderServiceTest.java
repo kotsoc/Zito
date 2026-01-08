@@ -77,7 +77,7 @@ class OrderServiceTest {
         UUID cartId = UUID.randomUUID();
         request.setCartId(cartId);
         request.setCartItems(cartItemsRequest);
-        request.setGuestEmail(Optional.of("guest@example.com"));
+        request.setGuestEmail("guest@example.com");
 
         ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
         when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));

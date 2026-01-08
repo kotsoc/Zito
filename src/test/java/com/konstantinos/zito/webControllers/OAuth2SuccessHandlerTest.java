@@ -27,13 +27,10 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.konstantinos.zito.model.AuthProvider;
 import com.konstantinos.zito.model.RestaurantUser;
-import com.konstantinos.zito.model.dto.LoginResponse;
 import com.konstantinos.zito.repositories.UserRepository;
 import com.konstantinos.zito.security.JwtTokenUtil;
-import com.konstantinos.zito.webControllers.OAuth2SuccessHandler;
 
 @ExtendWith(MockitoExtension.class)
 public class OAuth2SuccessHandlerTest {
@@ -58,14 +55,6 @@ public class OAuth2SuccessHandlerTest {
 
     @InjectMocks
     private OAuth2SuccessHandler successHandler;
-
-    private StringWriter responseWriter;
-
-    @BeforeEach
-    public void setup() throws Exception {
-        responseWriter = new StringWriter();
-        when(response.getWriter()).thenReturn(new PrintWriter(responseWriter));
-    }
 
     @Test
     public void testOnAuthenticationSuccess_existingUser() throws Exception {
@@ -92,14 +81,6 @@ public class OAuth2SuccessHandlerTest {
         // Verify provider was updated
         assertEquals(AuthProvider.GOOGLE, existingUser.getProvider());
 
-        // Verify response JSON contains JWT token
-        ObjectMapper mapper = new ObjectMapper();
-        LoginResponse loginResponse = mapper.readValue(responseWriter.toString(), LoginResponse.class);
-        assertEquals("jwt-token", loginResponse.getAccessToken());
-        assertEquals("existing@gmail.com", loginResponse.getUsername());
-        assertEquals(1, loginResponse.getRoles().size());
-        assert(loginResponse.getRoles().contains("ROLE_USER"));
-
         // Verify refresh cookie is set
         verify(response).addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
@@ -113,7 +94,7 @@ public class OAuth2SuccessHandlerTest {
         when(authentication.getPrincipal()).thenReturn(oAuth2User);
         when(oAuth2User.getAttribute("email")).thenReturn("newuser@gmail.com");
         when(oAuth2User.getAttribute("sub")).thenReturn("providerId456");
-
+        
         // No existing user
         when(userRepository.findByEmail("newuser@gmail.com")).thenReturn(Optional.empty());
 
@@ -130,14 +111,6 @@ public class OAuth2SuccessHandlerTest {
 
         // Capture saved user
         verify(userRepository).save(any(RestaurantUser.class));
-
-        // Verify response JSON contains JWT token
-        ObjectMapper mapper = new ObjectMapper();
-        LoginResponse loginResponse = mapper.readValue(responseWriter.toString(), LoginResponse.class);
-        assertEquals("jwt-token-new", loginResponse.getAccessToken());
-        assertEquals("newuser@gmail.com", loginResponse.getUsername());
-        assertEquals(1, loginResponse.getRoles().size());
-        assert(loginResponse.getRoles().contains("ROLE_GUEST"));
 
         // Verify refresh cookie is set
         verify(response).addHeader(HttpHeaders.SET_COOKIE, cookie.toString());

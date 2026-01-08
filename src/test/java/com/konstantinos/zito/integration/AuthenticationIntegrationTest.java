@@ -31,20 +31,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test") // Ensures @Profile("!dev") is active
-// @Testcontainers // Automatically starts and stops containers
+@Testcontainers // Automatically starts and stops containers
 class AuthenticationIntegrationTest {
 
-    // // Define the MongoDB container
-    // @Container
-    // static final MongoDBContainer mongoDBContainer = new MongoDBContainer("mongo:6.0")
-    //         .withExposedPorts(27017);
+    // Define the MongoDB container
+    @Container
+    static final MongoDBContainer mongoDBContainer = new MongoDBContainer("mongo:6.0")
+            .withExposedPorts(27017);
 
             
-    // // This dynamically points Spring Data MongoDB to the container's random port
-    // @DynamicPropertySource
-    // static void setProperties(DynamicPropertyRegistry registry) {
-    //     registry.add("spring.data.mongodb.uri", mongoDBContainer::getReplicaSetUrl);
-    // }
+    // This dynamically points Spring Data MongoDB to the container's random port
+    @DynamicPropertySource
+    static void setProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.data.mongodb.uri", mongoDBContainer::getReplicaSetUrl);
+    }
 
     @Autowired
     private TestRestTemplate restTemplate;
@@ -91,7 +91,7 @@ void fullAuthenticationLifecycle() {
     HttpEntity<Void> refreshEntity = new HttpEntity<>(refreshHeaders);
 
     ResponseEntity<RefreshResponse> refreshResponse = restTemplate.exchange(
-            "/user/refresh", HttpMethod.GET, refreshEntity, RefreshResponse.class);
+            "/user/refresh", HttpMethod.POST, refreshEntity, RefreshResponse.class);
 
     assertThat(refreshResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(refreshResponse.getBody().getAccessToken()).isNotNull();
