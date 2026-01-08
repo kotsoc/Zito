@@ -16,6 +16,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -167,23 +168,20 @@ public class AuthenticationController {
          * 
          * Refresh the token for a certain {@code RestaurantUser},
          * 
-         * @param user The {@code RestaurantUser} object to be persisted.
-         * @return A new Jwt token for the user
+         * @return A {@code RefreshResponse} containing a token for the user
          */
-        @GetMapping("/refresh")
+        @PostMapping("/refresh")
         public ResponseEntity<?> refreshToken(
                         @CookieValue(value = "refreshToken", required = false) String refreshToken) {
-                if (refreshToken == null) {
-                        return ResponseEntity.status(401).body(Map.of("error", "Refresh token missing"));
-                }
-                if (!jwtTokenUtil.validateJwtRefreshToken(refreshToken)) {
-                        return ResponseEntity.status(403).body(Map.of("error", "Invalid refresh token"));
+               
+                if (refreshToken == null || !jwtTokenUtil.validateJwtRefreshToken(refreshToken)) {
+                        return ResponseEntity.status(401).body(Map.of("error", "Refresh token invalid or missing"));
                 }
 
                 UUID userId = jwtTokenUtil.getUserId(refreshToken);
 
                 var user = userRepository.findById(userId);
-
+                //TODO: Refresh token persist on DB and Revoke on logout --- @tokenInvalidationService/extend with DB
                 if (user.isEmpty()) {
 
                         return ResponseEntity.status(404).body(Map.of("error", "User not found"));
@@ -193,6 +191,22 @@ public class AuthenticationController {
                                 user.get().getEmail(),
                                 user.get().getRoles().stream().toList());
                 return ResponseEntity.status(HttpStatus.OK).body(new RefreshResponse(newAccessToken, userId));
+        }
+
+        /**
+         * 
+         * Get an access token for a certain {@code RestaurantUser},
+         * 
+         * @return A {@code Restaurant User} and an access token for the user
+         */
+        @GetMapping("/me")
+        public ResponseEntity<RestaurantUser> me(@AuthenticationPrincipal RestaurantUserDetails currentUser) {
+                var user = userRepository.findById(currentUser.getId());
+                if (user.isPresent()) {
+                        return ResponseEntity.ok(user.get());
+                } else {
+                        return ResponseEntity.notFound().build();
+                }
         }
 
         /////----------  User Management Endpoints ------------/////

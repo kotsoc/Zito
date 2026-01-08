@@ -21,6 +21,7 @@ public class RestaurantUser {
     UUID id = UUID.randomUUID();
 
     String phoneNumber;
+    String name = "Fisfiris";
 
     @Indexed(unique = true)
     @NotBlank
@@ -40,13 +41,16 @@ public class RestaurantUser {
         this.roles = new HashSet<String>();
     }
 
-    public RestaurantUser(String phoneNumber, String name) {
+    public RestaurantUser(String phoneNumber, String email) {
         this.phoneNumber = phoneNumber;
-        this.email = name;
+        this.email = email;
+        this.roles = new HashSet<String>();
     }
 
-    public RestaurantUser(String name) {
-        this.email = name;
+    public RestaurantUser(String email) {
+        this.email = email;
+        this.roles = new HashSet<String>();
+
     }
 
     public void addRole(String role) {

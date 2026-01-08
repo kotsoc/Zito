@@ -4,6 +4,7 @@ import java.util.List;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -16,7 +17,7 @@ public class CartItemRequest {
     @NotBlank
     private String menuItemId;
 
-    @Min(1)
+    @Size(min = 1, message = "At least one item neede per CartItem")
     private int quantity;
 
     private String note;

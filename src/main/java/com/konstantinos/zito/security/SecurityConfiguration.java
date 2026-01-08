@@ -21,7 +21,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
-
+import com.konstantinos.zito.webControllers.OAuth2FailureHandler;
 import com.konstantinos.zito.webControllers.OAuth2SuccessHandler;
 
 import jakarta.servlet.FilterRegistration;
@@ -39,8 +39,7 @@ public class SecurityConfiguration {
 
     public SecurityConfiguration(UserDetailsService userDetailsService, JwtTokenFilter tokenFilter) {
         this.userDetailsService = userDetailsService;
-        this.tokenFilter = tokenFilter;
-    }
+        this.tokenFilter = tokenFilter;    }
 
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
@@ -59,7 +58,7 @@ public class SecurityConfiguration {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthEntryPoint authEntryPoint,
-            OAuth2SuccessHandler oAuth2SuccessHandler) throws Exception {
+            OAuth2SuccessHandler oAuth2SuccessHandler, OAuth2FailureHandler oAuth2FailureHandler) throws Exception {
         // JWT will still run before
         http.csrf(csrf -> csrf.disable());
 
@@ -69,27 +68,28 @@ public class SecurityConfiguration {
           securityContext.requireExplicitSave(false)
         );
 
-        http.authorizeHttpRequests(authz -> authz
+        http
+            .exceptionHandling(ex -> ex
+            .authenticationEntryPoint(authEntryPoint))
+            .authorizeHttpRequests(authz -> authz
                 .requestMatchers(
-                        "/actuator/**",
-                        "/*.png",
-                        "/index.html",
-                        "/manifest.json",
-                        "/favicon.ico",
-                        "/static/**",
-                        "/css/*",
-                        "/js/*",
-                        "/user/signin",
-                        "/user/signup",
-                        "/user/refresh",
-                        "/swagger-ui/**",
-                        "/v3/api-docs*/**")
-                .permitAll()
+                    "/actuator/**",
+                    "/*.png",
+                    "/index.html",
+                    "/manifest.json",
+                    "/favicon.ico",
+                    "/static/**",
+                    "/css/*",
+                    "/js/*",
+                    "/user/signin",
+                    "/user/signup",
+                    "/user/refresh",
+                    "/swagger-ui/**",
+                    "/v3/api-docs*/**"
+                ).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/menu-items", "/api/v1/categories")
                 .permitAll()
-                .anyRequest().authenticated())
-                .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint(authEntryPoint));
+                .anyRequest().authenticated());
 
         // Add your existing DaoAuthenticationProvider
         http.authenticationProvider(authenticationProvider());
@@ -99,9 +99,9 @@ public class SecurityConfiguration {
 
         // --- NEW: OAuth2 Login ---
         http.oauth2Login(oauth2 -> oauth2
-                // Set your success handler for OAuth2 logins
-                .successHandler(oAuth2SuccessHandler));
-
+                .successHandler(oAuth2SuccessHandler)
+                .failureHandler(oAuth2FailureHandler));
+                
         return http.build();
     }
 

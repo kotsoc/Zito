@@ -1,8 +1,11 @@
 package com.konstantinos.zito.webControllers;
 
 import java.io.IOException;
+import java.net.URI;
+import java.util.List;
 import java.util.Set;
 
+import org.apache.coyote.BadRequestException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
@@ -55,18 +58,11 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         String accessToken = jwtTokenUtil.generateAccessToken(user);
         ResponseCookie refreshCookie = jwtTokenUtil.generateRefreshJwtCookie(user);
 
-        // Build login response
-        LoginResponse loginResponse = new LoginResponse(
-                accessToken,
-                user.getEmail(),
-                user.getRoles().stream().toList()
-        );
-
         // Return JSON response with refresh cookie header
         response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
-        response.setContentType("application/json");
-        response.setStatus(HttpServletResponse.SC_OK);
-        response.getWriter().write(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(loginResponse));
+
+        // Redirect to FE
+        response.sendRedirect("http://localhost:8081/login-success");
     }
 
     private RestaurantUser linkGoogleIfLocal(RestaurantUser existingUser, String providerId) {

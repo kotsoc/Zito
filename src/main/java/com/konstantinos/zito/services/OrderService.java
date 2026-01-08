@@ -54,7 +54,7 @@ public class OrderService {
         order.setTotal(calculateOrderTotal(order.getCartItems()));
 
         //email is optional
-        request.getGuestEmail().ifPresent(order::setGuestEmail);
+        if (request.getGuestEmail() != null){order.setGuestEmail(request.getGuestEmail());}
 
         return mapToResponse(orderRepository.save(order));
     }
