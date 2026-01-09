@@ -228,7 +228,7 @@ class OrderServiceTest {
         assertEquals(waiterId, response.getWaiterId());
 
         assertEquals("table-4", response.getOrderPointId());
-        assertEquals(cartItemsRequest.size(), response.getCartItems().size());
+        assertEquals(cartItemsRequest.size(), response.getOrderItems().size());
     }
 
     @Test
