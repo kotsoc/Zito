@@ -24,7 +24,7 @@ import com.konstantinos.zito.model.OrderItem;
 import com.konstantinos.zito.model.dto.OrderResponse;
 import com.konstantinos.zito.model.dto.CreateOrderRequest;
 import com.konstantinos.zito.model.dto.CartItemRequest;
-import com.konstantinos.zito.model.dto.CartItemResponse;
+import com.konstantinos.zito.model.dto.OrderItemResponse;
 
 @Service
 @Transactional
@@ -162,8 +162,8 @@ public class OrderService {
         response.setCreatedAt(order.getCreated_At());
         response.setLatestUpdate(order.getLatest_update());
         response.setPaid(order.isPaid());
-        response.setCartItems(order.getOrderItems().stream().map(ci -> {
-            var ciResp = new CartItemResponse();
+        response.setOrderItems(order.getOrderItems().stream().map(ci -> {
+            var ciResp = new OrderItemResponse();
             ciResp.setMenuItemId(ci.getMenuItemId());
             ciResp.setName(ci.getName());
             ciResp.setUnitPrice(ci.getUnitPrice());

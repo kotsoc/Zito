@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.apache.coyote.BadRequestException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
@@ -29,9 +30,12 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     private final JwtTokenUtil jwtTokenUtil;
     private static final String DEFAULT_ROLE = "ROLE_GUEST";
 
-    public OAuth2SuccessHandler(UserRepository userRepository, JwtTokenUtil jwtTokenUtil) {
+    private final String redirectURL;
+
+    public OAuth2SuccessHandler(UserRepository userRepository, JwtTokenUtil jwtTokenUtil,  @Value("${zito.app.client-url:http://localhost:8081/login-success}") String redirectURL) {
         this.userRepository = userRepository;
         this.jwtTokenUtil = jwtTokenUtil;
+        this.redirectURL = redirectURL;
     }
 
     @Override
@@ -62,7 +66,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
         response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
 
         // Redirect to FE
-        response.sendRedirect("http://localhost:8081/login-success");
+        response.sendRedirect(redirectURL);
     }
 
     private RestaurantUser linkGoogleIfLocal(RestaurantUser existingUser, String providerId) {

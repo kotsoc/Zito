@@ -23,12 +23,12 @@ public class OrderResponse {
     // Financials
     private String currency;
     private BigDecimal grandTotal;        // total after discounts
-    private BigDecimal subtotal;     // sum of item subtotals
+    private BigDecimal subTotal;     // sum of item subtotals
     private Map<BigDecimal, BigDecimal> taxTotals;
     private BigDecimal discount;
     private BigDecimal tip;
 
-    private List<CartItemResponse> cartItems;
+    private List<OrderItemResponse> orderItems;
     private boolean paid;
     private OrderStatus status;
 

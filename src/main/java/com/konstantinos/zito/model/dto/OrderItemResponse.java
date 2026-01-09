@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
-public class CartItemResponse {
+public class OrderItemResponse {
     private String menuItemId;        
     private String name;              
     private BigDecimal unitPrice;         // Calculated price from backend
