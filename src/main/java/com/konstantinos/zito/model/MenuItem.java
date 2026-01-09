@@ -21,7 +21,7 @@ public class MenuItem {
     private String categoryName;
     private Boolean available;
     private String imageUrl;
-    private double taxRate;
+    private BigDecimal taxRate;
 
     public MenuItem() {
     }
@@ -98,11 +98,11 @@ public class MenuItem {
         this.imageUrl = urlString;
     }
 
-    public double getTaxRate() {
+    public BigDecimal getTaxRate() {
         return taxRate;
     }
     
-    public void setTaxRate(double taxRate) {
+    public void setTaxRate(BigDecimal taxRate) {
         this.taxRate = taxRate;
     }
 }

@@ -3,6 +3,7 @@ package com.konstantinos.zito.model;
 import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.data.annotation.CreatedDate;
@@ -38,6 +39,8 @@ public class Order {
     private UUID waiterId; // Only for orders created by waiters/users
 
     private UUID cartId; // Only for guest orders
+    private String guestEmail; //optional
+    private String guestPhone; //optional
 
     @CreatedDate
     private Date created_At;
@@ -47,17 +50,16 @@ public class Order {
     // Financial details
     private String currency;
     private BigDecimal subTotal;
-    private BigDecimal total;
-    private BigDecimal tax;
+    private BigDecimal grandTotal;
+    private Map<BigDecimal, BigDecimal> taxTotals;
     private BigDecimal discount;
     private BigDecimal tip;
 
-    private List<OrderItem> cartItems;
+    private List<OrderItem> orderItems;
     private boolean paid;
     private OrderStatus status;
 
-    private String guestEmail; //optional
-    private String guestPhone; //optional
+    private String notes;
 
     public boolean isPaid() {
         return paid;

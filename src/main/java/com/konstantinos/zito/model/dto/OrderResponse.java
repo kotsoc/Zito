@@ -3,6 +3,7 @@ package com.konstantinos.zito.model.dto;
 import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import com.konstantinos.zito.model.OrderStatus;
@@ -21,9 +22,9 @@ public class OrderResponse {
 
     // Financials
     private String currency;
-    private BigDecimal total;        // total after discounts
+    private BigDecimal grandTotal;        // total after discounts
     private BigDecimal subtotal;     // sum of item subtotals
-    private BigDecimal tax;
+    private Map<BigDecimal, BigDecimal> taxTotals;
     private BigDecimal discount;
     private BigDecimal tip;
 

@@ -2,6 +2,8 @@ package com.konstantinos.zito.model.dto;
 
 import java.util.List;
 
+import com.konstantinos.zito.model.OrderItemModifier;
+
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -22,5 +24,5 @@ public class CartItemRequest {
 
     private String note;
 
-    private List<String> modifiers;
+    private List<OrderItemModifier> modifiers;
 }
