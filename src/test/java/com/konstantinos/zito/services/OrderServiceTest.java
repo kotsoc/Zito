@@ -37,12 +37,14 @@ class OrderServiceTest {
         userRepository = mock(UserRepository.class);
         menuItemRepository = mock(MenuItemRepository.class);
         orderService = new OrderService(orderRepository, userRepository, menuItemRepository);
+        var itemMod1 = new OrderItemModifier(UUID.randomUUID(), "extra Bacon", BigDecimal.valueOf(3));
+        var itemMod2 = new OrderItemModifier(UUID.randomUUID(), "extra Cheese", BigDecimal.valueOf(2));
 
-                CartItemRequest item1 = new CartItemRequest(
-                "menu-item-1", 2, "No onions", List.of("extra cheese")
+        CartItemRequest item1 = new CartItemRequest(
+                "menu-item-1", 2, "No onions", List.of(itemMod1)
         );
         CartItemRequest item2 = new CartItemRequest(
-                "menu-item-2", 1, "No tomatoes", List.of("extra sauce")
+                "menu-item-2", 1, "No tomatoes", List.of(itemMod2)
         );
         cartItemsRequest = List.of(item1, item2);
 
@@ -92,7 +94,7 @@ class OrderServiceTest {
         assertEquals("guest@example.com", savedOrder.getGuestEmail());
         assertEquals(OrderStatus.NEW, savedOrder.getStatus());
         assertFalse(savedOrder.isPaid());
-        assertEquals(2, savedOrder.getCartItems().size());
+        assertEquals(2, savedOrder.getOrderItems().size());
 
         assertEquals(savedOrder.getId(), response.getId());
     }
@@ -103,7 +105,7 @@ class OrderServiceTest {
         Order order = new Order();
         order.setCartId(cartId);
         order.setGuestEmail("guest@example.com");
-        order.setCartItems(List.of(cartItem1));
+        order.setOrderItems(List.of(cartItem1));
 
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
@@ -120,7 +122,7 @@ class OrderServiceTest {
         Order order = new Order();
         order.setCartId(cartId);
         order.setGuestEmail("guest@example.com");
-        order.setCartItems(List.of(cartItem1));
+        order.setOrderItems(List.of(cartItem1));
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
         Optional<OrderResponse> result = orderService.getGuestOrder(order.getId(), cartId, Optional.of("guest@example.com"));
@@ -172,7 +174,7 @@ class OrderServiceTest {
         UUID waiterId = UUID.randomUUID();
         Order order = new Order();
         order.setWaiterId(waiterId);
-        order.setCartItems(List.of(cartItem1));
+        order.setOrderItems(List.of(cartItem1));
 
         when(orderRepository.findByWaiterId(waiterId)).thenReturn(List.of(order));
 
@@ -187,7 +189,7 @@ class OrderServiceTest {
         String tableNumber = "table-3";
         Order order = new Order();
         order.setOrderPointId("table-3");
-        order.setCartItems(List.of(cartItem1, cartItem2));
+        order.setOrderItems(List.of(cartItem1, cartItem2));
 
         when(orderRepository.findByOrderPointId(tableNumber)).thenReturn(List.of(order));
 
@@ -206,7 +208,7 @@ class OrderServiceTest {
 
         Order existingOrder = new Order();
         existingOrder.setWaiterId(waiterId);
-        existingOrder.setCartItems(new ArrayList<>()); // empty initially
+        existingOrder.setOrderItems(new ArrayList<>()); // empty initially
 
         // Mock MenuItemRepository for price snapshot
         for (CartItemRequest item : cartItemsRequest) {

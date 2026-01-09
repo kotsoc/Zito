@@ -6,7 +6,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.math.BigDecimal;
@@ -15,6 +17,7 @@ import java.math.RoundingMode;
 import com.konstantinos.zito.repositories.MenuItemRepository;
 import com.konstantinos.zito.repositories.OrderRepository;
 import com.konstantinos.zito.repositories.UserRepository;
+import com.konstantinos.zito.util.OrderTotals;
 import com.konstantinos.zito.model.Order;
 import com.konstantinos.zito.model.OrderStatus;
 import com.konstantinos.zito.model.OrderItem;
@@ -48,10 +51,14 @@ public class OrderService {
         order.setCartId(request.getCartId());
         order.setCreated_At(new Date());
         order.setLatest_update(new Date());
-        order.setCartItems(calculateCartSnapshot(request));
+        order.setOrderItems(calculateCartSnapshot(request));
         order.setPaid(false);
         order.setStatus(OrderStatus.NEW);
-        order.setTotal(calculateOrderTotal(order.getCartItems()));
+        var orderTotals = calculateOrderTotals(order.getOrderItems());
+        order.setSubTotal(orderTotals.getSubtotal());
+        order.setTaxTotals(orderTotals.getTaxTotalsByRate());
+        order.setGrandTotal(orderTotals.getGrandTotal());
+
 
         //email is optional
         if (request.getGuestEmail() != null){order.setGuestEmail(request.getGuestEmail());}
@@ -78,13 +85,14 @@ public class OrderService {
         order.setOrderPointId(request.getOrderPointId());
         order.setCreated_At(new Date());
         order.setLatest_update(new Date());
-        order.setCartItems(calculateCartSnapshot(request));
+        order.setOrderItems(calculateCartSnapshot(request));
 
         order.setPaid(false); // default
         order.setStatus(OrderStatus.NEW); // default or NEW
-        order.setTotal(calculateOrderTotal(order.getCartItems()));
-
-        // TODO: compute total, subtotal, tax, etc.
+        var orderTotals = calculateOrderTotals(order.getOrderItems());
+        order.setSubTotal(orderTotals.getSubtotal());
+        order.setTaxTotals(orderTotals.getTaxTotalsByRate());
+        order.setGrandTotal(orderTotals.getGrandTotal());
 
         return mapToResponse(orderRepository.save(order));
     }
@@ -109,7 +117,7 @@ public class OrderService {
             throw new RuntimeException("Waiter mismatch");
         }
 
-        existingOrder.setCartItems(calculateCartSnapshot(request));
+        existingOrder.setOrderItems(calculateCartSnapshot(request));
         existingOrder.setLatest_update(new Date());
         existingOrder.setOrderPointId(request.getOrderPointId());
 
@@ -154,22 +162,22 @@ public class OrderService {
         response.setCreatedAt(order.getCreated_At());
         response.setLatestUpdate(order.getLatest_update());
         response.setPaid(order.isPaid());
-        response.setCartItems(order.getCartItems().stream().map(ci -> {
+        response.setCartItems(order.getOrderItems().stream().map(ci -> {
             var ciResp = new CartItemResponse();
             ciResp.setMenuItemId(ci.getMenuItemId());
             ciResp.setName(ci.getName());
-            ciResp.setPrice(ci.getUnitPrice());
+            ciResp.setUnitPrice(ci.getUnitPrice());
             ciResp.setQuantity(ci.getQuantity());
             ciResp.setDiscount(ci.getDiscount());
             ciResp.setNote(ci.getNote());
-            ciResp.setModifiers(ci.getModifiers());
-            // compute subtotal
-            ciResp.setSubtotal(ci.getUnitPrice()
-                    .multiply(BigDecimal.valueOf(ci.getQuantity()))
-                    .subtract(ci.getDiscount() != null ? ci.getDiscount() : BigDecimal.ZERO));
+            ciResp.setModifiers(ci.getItemModifiers());
+            ciResp.setTax(ci.getTaxRate());
+            ciResp.setSubtotal(ci.getSubTotal());
             return ciResp;
         }).toList());
-        // TODO: compute, total, tax, discount, tip
+        response.setSubtotal(order.getSubTotal());
+        response.setTaxTotals(order.getTaxTotals());
+        response.setGrandTotal(order.getGrandTotal());
         return response;
     }
 
@@ -185,9 +193,10 @@ public class OrderService {
             ci.setName(menuItem.getName());
             ci.setUnitPrice(menuItem.getPrice());
             ci.setQuantity(ciReq.getQuantity());
+            ci.setTaxRate(menuItem.getTaxRate());
             ci.setNote(ciReq.getNote());
-            ci.setModifiers(ciReq.getModifiers());
-            ci.setTotalPrice(menuItem.getPrice()
+            ci.setItemModifiers(ciReq.getModifiers());
+            ci.setSubTotal(menuItem.getPrice()
                 .multiply(BigDecimal.valueOf(ci.getQuantity()).setScale(2, RoundingMode.HALF_EVEN)
                 .subtract(ci.getDiscount() != null ? ci.getDiscount() : BigDecimal.ZERO)));
             cartSnapshot.add(ci);
@@ -195,9 +204,26 @@ public class OrderService {
         return cartSnapshot;
     }
 
-    private BigDecimal calculateOrderTotal(List<OrderItem> items) {
-        return items.stream()
-            .map(OrderItem::getTotalPrice)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
+    public OrderTotals calculateOrderTotals(List<OrderItem> items) {
+        BigDecimal subtotal = BigDecimal.ZERO;
+        BigDecimal grandTotal = BigDecimal.ZERO;
+        Map<BigDecimal, BigDecimal> taxTotals = new HashMap<>();
+
+        for (OrderItem item : items) {
+            BigDecimal itemSubtotal = item.getSubTotal();
+            subtotal = subtotal.add(itemSubtotal);
+
+            if (item.getTaxRate() != null) {
+                BigDecimal taxAmount = itemSubtotal.multiply(item.getTaxRate())
+                                                .setScale(2, RoundingMode.HALF_UP);
+                taxTotals.merge(item.getTaxRate(), taxAmount, BigDecimal::add);
+            }
+        }
+
+        taxTotals.values().stream().map(a -> a.setScale(2, RoundingMode.HALF_UP));
+        grandTotal = subtotal.add(taxTotals.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add));
+        grandTotal.setScale(2, RoundingMode.HALF_UP);
+
+        return new OrderTotals(grandTotal, subtotal, taxTotals);
     }
 }
