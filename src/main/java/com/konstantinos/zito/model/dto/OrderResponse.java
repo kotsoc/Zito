@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import com.konstantinos.zito.model.OrderStatus;
+import com.konstantinos.zito.model.TaxEntry;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -24,13 +24,13 @@ public class OrderResponse {
     private String currency;
     private BigDecimal grandTotal;        // total after discounts
     private BigDecimal subTotal;     // sum of item subtotals
-    private Map<BigDecimal, BigDecimal> taxTotals;
+    private List<TaxEntry> taxTotals;
     private BigDecimal discount;
     private BigDecimal tip;
 
     private List<OrderItemResponse> orderItems;
     private boolean paid;
-    private OrderStatus status;
+    private TaxEntry status;
 
     private String guestEmail;
     private String guestPhone;

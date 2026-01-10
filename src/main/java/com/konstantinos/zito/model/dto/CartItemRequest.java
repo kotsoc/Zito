@@ -25,4 +25,5 @@ public class CartItemRequest {
     private String note;
 
     private List<OrderItemModifier> modifiers;
+    private Double itemDiscount;
 }

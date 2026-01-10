@@ -1,5 +1,6 @@
 package com.konstantinos.zito.model.dto;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,4 +32,5 @@ public class CreateOrderRequest {
 
     String currency;
     String customerNote;
+    BigDecimal discount;
 }

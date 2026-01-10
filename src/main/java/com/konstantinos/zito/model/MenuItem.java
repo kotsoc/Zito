@@ -16,7 +16,8 @@ public class MenuItem {
     private String name;
 
     private String description;
-    private BigDecimal price;
+    private BigDecimal netPrice;
+    private BigDecimal grossPrice; // OPTIONAL
     private int categoryId;
     private String categoryName;
     private Boolean available;
@@ -26,12 +27,13 @@ public class MenuItem {
     public MenuItem() {
     }
 
-    public MenuItem(String name, int categoryId, String categoryName, String description, BigDecimal price, String imageUrl) {
+    public MenuItem(String name, int categoryId, String categoryName, String description, BigDecimal netPrice, BigDecimal grossPrice, String imageUrl) {
         this.name = name;
         this.categoryId = categoryId;
         this.categoryName = categoryName;
         this.description = description;
-        this.price = price;
+        this.grossPrice = grossPrice;
+        this.netPrice = netPrice;
         this.imageUrl = imageUrl;
     }
 
@@ -75,12 +77,19 @@ public class MenuItem {
         this.description = description;
     }
 
-    public BigDecimal getPrice() {
-        return price;
+    public BigDecimal getGrossPrice() {
+        return grossPrice;
     }
 
-    public void setPrice(BigDecimal price) {
-        this.price = price;
+    public void setGrossPrice(BigDecimal price) {
+        this.grossPrice = price;
+    }
+    public BigDecimal getNetPrice() {
+        return netPrice;
+    }
+
+    public void setNetPrice(BigDecimal price) {
+        this.netPrice = price;
     }
     public Boolean getAvailable() {
         return available;

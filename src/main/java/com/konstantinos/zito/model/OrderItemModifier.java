@@ -13,5 +13,12 @@ import lombok.NoArgsConstructor;
 public class OrderItemModifier {
     private UUID optionId;
     private String name;
-    private BigDecimal price;
+    private BigDecimal netPrice;
+    private BigDecimal taxRate;    
+    
+    private BigDecimal unitNet;    //Snapshot
+    private BigDecimal unitGross; // Snapshot
+    private BigDecimal unitTax;
+
+
 }

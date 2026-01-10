@@ -13,17 +13,25 @@ import lombok.NoArgsConstructor;
 public class OrderItem {
     
     private String menuItemId;         // original menu item reference
-    private String name; 
-    
-    // snapshot of name at time of order
-    private BigDecimal unitPrice; 
-    private BigDecimal subTotal;     // snapshot of price at time of order
+    private String name;                // snapshot of name at time of order
     private int quantity;              //total = price * quantity
-    private BigDecimal discount;
-    private BigDecimal taxRate;
-
 
     private String note;              // ✅ free-text user note
     private List<OrderItemModifier> itemModifiers;   // Optional future-proofing
 
+
+    //Pricing snapshot (Stored for Audit/UI) - Financial
+    private BigDecimal unitPriceNet;       // snapshot of price at time of order
+    private BigDecimal unitTax;
+    private BigDecimal unitPriceGross;       // snapshot of price at time of order
+    private BigDecimal itemDiscount;    // 0-100
+    
+
+    // Calculated Totals
+    private BigDecimal discountTotal;      //Calculated at checkout
+    private BigDecimal modifierTotal;       //calculated at checkout
+
+    private TaxEntry taxRate;        // tax rate: decimal
+    private BigDecimal netTotal;
+    private BigDecimal grossTotal;        
 }

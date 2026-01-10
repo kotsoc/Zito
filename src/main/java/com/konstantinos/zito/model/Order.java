@@ -33,15 +33,18 @@ public class Order {
     @Id
     @Setter(AccessLevel.NONE)
     private UUID id;
-
     private String orderPointId; // table, bar, takeaway, etc.
-    
     private UUID waiterId; // Only for orders created by waiters/users
-
     private UUID cartId; // Only for guest orders
+
     private String guestEmail; //optional
     private String guestPhone; //optional
-
+    
+    private List<OrderItem> orderItems;
+    private boolean paid;
+    private OrderStatus status;
+    private String notes;
+    
     @CreatedDate
     private Date created_At;
     @LastModifiedDate
@@ -49,23 +52,13 @@ public class Order {
 
     // Financial details
     private String currency;
-    private BigDecimal subTotal;
-    private BigDecimal grandTotal;
-    private Map<BigDecimal, BigDecimal> taxTotals;
-    private BigDecimal discount;
+    private BigDecimal orderDiscount; //
     private BigDecimal tip;
 
-    private List<OrderItem> orderItems;
-    private boolean paid;
-    private OrderStatus status;
-
-    private String notes;
-
-    public boolean isPaid() {
-        return paid;
-    }
-
-    public void setPaid(boolean paid) {
-        this.paid = paid;
-    }
+    // Calculated Totals
+    private BigDecimal discountTotal;      //Calculated at checkout
+    private BigDecimal modifierTotal;       //calculated at checkout
+    private BigDecimal netTotal;
+    private BigDecimal grossTotal;
+    private Map<BigDecimal, BigDecimal> taxTotals;
 }
