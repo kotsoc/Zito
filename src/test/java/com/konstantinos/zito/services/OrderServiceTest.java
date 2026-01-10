@@ -20,7 +20,7 @@ class OrderServiceTest {
 
     private OrderRepository orderRepository;
     private UserRepository userRepository;
-    private MenuItemRepository menuItemRepository;
+    private MenuService menuItemService;
     private OrderService orderService;
     private List<CartItemRequest> cartItemsRequest;
     private OrderItem cartItem1;
@@ -35,8 +35,8 @@ class OrderServiceTest {
     void setUp() {
         orderRepository = mock(OrderRepository.class);
         userRepository = mock(UserRepository.class);
-        menuItemRepository = mock(MenuItemRepository.class);
-        orderService = new OrderService(orderRepository, userRepository, menuItemRepository);
+        menuItemService = mock(MenuService.class);
+        orderService = new OrderService(orderRepository, userRepository, menuItemService);
         var itemMod1 = new OrderItemModifier(UUID.randomUUID(), "extra Bacon", BigDecimal.valueOf(3), null, null, null, null);
         var itemMod2 = new OrderItemModifier(UUID.randomUUID(), "extra Cheese", BigDecimal.valueOf(2), null, null, null, null);
 
@@ -69,12 +69,12 @@ class OrderServiceTest {
         menuItem2.setTaxRate(BigDecimal.valueOf(23));
         var menulist = List.of(menuItem1, menuItem2);
 
-        when(menuItemRepository.findAllById(List.of("menu-item-1", "menu-item-2")))
+        when(menuItemService.findAllItemsById(List.of("menu-item-1", "menu-item-2")))
                 .thenReturn(menulist);
-        when(menuItemRepository.findById("menu-item-1"))
-                .thenReturn(Optional.of(menuItem1));
-        when(menuItemRepository.findById("menu-item-2"))
-                .thenReturn(Optional.of(menuItem2));
+    //     when(menuItemService.findById("menu-item-1"))
+    //             .thenReturn(Optional.of(menuItem1));
+    //     when(menuItemService.findById("menu-item-2"))
+    //             .thenReturn(Optional.of(menuItem2));
     }
 
     @Test
@@ -220,7 +220,6 @@ class OrderServiceTest {
             MenuItem menuItem = new MenuItem();
             menuItem.setId(item.getMenuItemId());
             menuItem.setGrossPrice(BigDecimal.valueOf(10)); // just a fixed test price
-            when(menuItemRepository.findById(item.getMenuItemId())).thenReturn(Optional.of(menuItem));
         }
 
         when(orderRepository.findById(existingOrder.getId())).thenReturn(Optional.of(existingOrder));

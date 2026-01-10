@@ -52,6 +52,13 @@ public class MenuService {
         allItems.forEach(item -> menuItemCache.put(item.getId(), item));
         return allItems;
     }
+
+    public List<MenuItem> findAllItemsById(List<String> idList) {
+        var allItems = menuItemRepository.findAllById(idList);
+        // Populate cache with ID-based keys
+        allItems.forEach(item -> menuItemCache.put(item.getId(), item));
+        return allItems;
+    }
     
     public Map<String, MenuItem> getMenuItemMap() {
         var allItems = menuItemRepository.findAll();

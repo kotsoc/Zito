@@ -37,14 +37,14 @@ public class OrderService {
 
     private final UserRepository userRepository;
 
-    private final MenuItemRepository menuItemRepository;
+    private final MenuService menuService;
 
     public OrderService(OrderRepository orderRepository,
             UserRepository userRepository,
-            MenuItemRepository menuItemRepository) {
+            MenuService menuService) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
-        this.menuItemRepository = menuItemRepository;
+        this.menuService = menuService;
     }
 
     public OrderResponse createGuestOrder(CreateOrderRequest request) {
@@ -173,7 +173,7 @@ public class OrderService {
     // VAT = Discounted Net Price × VAT Rate
     // Gross Price = Discounted Net Price + VAT
     private List<OrderItem> calculateCartSnapshot(List<CartItemRequest> cartItems) {
-        var menuItemList = menuItemRepository.findAllById(cartItems.stream().map(CartItemRequest::getMenuItemId).toList());
+        var menuItemList = menuService.findAllItemsById(cartItems.stream().map(CartItemRequest::getMenuItemId).toList());
         Map<String, MenuItem> menuItemMap = menuItemList.stream() .collect(
             Collectors.toMap(MenuItem::getId, item -> item));
         

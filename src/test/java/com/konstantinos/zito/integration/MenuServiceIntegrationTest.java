@@ -217,6 +217,37 @@ class MenuServiceIntegrationTest {
         assertThat(menuService.getItemPrice(id)).isEqualByComparingTo("-1");
     }
 
+@Test
+void shouldFindAllItemsByIdAndVerifyBehavior() {
+    // GIVEN: Save items with String IDs
+    String pizzaId = "piz-001";
+    String pastaId = "pas-002";
+    
+    menuItemRepository.saveAll(List.of(
+        createMenuItem(pizzaId, "Pizza", "12.00", 1),
+        createMenuItem(pastaId, "Pasta", "10.00", 1)
+    ));
+
+    // WHEN: Batch fetch items
+    List<String> idList = List.of(pizzaId, pastaId);
+    List<MenuItem> results = menuService.findAllItemsById(idList);
+
+    // THEN: Verify the list returned is correct
+    assertThat(results).hasSize(2);
+
+    // THEN: Verify the Service logic (which uses the private cache)
+    // Even if we deleted the items from the DB now, these should return values 
+    // because they are now stored in the private menuItemCache.
+    BigDecimal pizzaPrice = menuService.getItemPrice(pizzaId);
+    int pizzaType = menuService.getItemType(pizzaId);
+
+    assertThat(pizzaPrice).isEqualByComparingTo("12.00");
+    assertThat(pizzaType).isEqualTo(1);
+    
+    BigDecimal pastaPrice = menuService.getItemPrice(pastaId);
+    assertThat(pastaPrice).isEqualByComparingTo("10.00");
+}
+ 
     // --- Helpers ---
 
     private Category createCategory(int id, String name, String desc) {
