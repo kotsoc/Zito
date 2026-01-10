@@ -6,12 +6,12 @@ import com.konstantinos.zito.repositories.MenuItemRepository;
 import com.konstantinos.zito.repositories.OrderRepository;
 import com.konstantinos.zito.repositories.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
+
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.math.BigDecimal;
 import java.util.*;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -37,34 +37,34 @@ class OrderServiceTest {
         userRepository = mock(UserRepository.class);
         menuItemRepository = mock(MenuItemRepository.class);
         orderService = new OrderService(orderRepository, userRepository, menuItemRepository);
-        var itemMod1 = new OrderItemModifier(UUID.randomUUID(), "extra Bacon", BigDecimal.valueOf(3));
-        var itemMod2 = new OrderItemModifier(UUID.randomUUID(), "extra Cheese", BigDecimal.valueOf(2));
+        var itemMod1 = new OrderItemModifier(UUID.randomUUID(), "extra Bacon", BigDecimal.valueOf(3), null, null, null, null);
+        var itemMod2 = new OrderItemModifier(UUID.randomUUID(), "extra Cheese", BigDecimal.valueOf(2), null, null, null, null);
 
         CartItemRequest item1 = new CartItemRequest(
-                "menu-item-1", 2, "No onions", List.of(itemMod1)
+                "menu-item-1", 2, "No onions", List.of(itemMod1), null
         );
         CartItemRequest item2 = new CartItemRequest(
-                "menu-item-2", 1, "No tomatoes", List.of(itemMod2)
+                "menu-item-2", 1, "No tomatoes", List.of(itemMod2), null
         );
         cartItemsRequest = List.of(item1, item2);
 
         cartItem1 = new OrderItem();
         cartItem1.setMenuItemId("menu-item-1");
         cartItem1.setQuantity(2);
-        cartItem1.setUnitPrice(BigDecimal.valueOf(10));
+        cartItem1.setGrossTotal(BigDecimal.valueOf(10));
 
         cartItem2 = new OrderItem();
         cartItem2.setMenuItemId("menu-item-2");
         cartItem2.setQuantity(1);
-        cartItem2.setUnitPrice(BigDecimal.valueOf(15));
+        cartItem2.setGrossTotal(BigDecimal.valueOf(15));
 
         MenuItem menuItem1 = new MenuItem();
         menuItem1.setId("menu-item-1");
-        menuItem1.setPrice(BigDecimal.valueOf(10));
+        menuItem1.setGrossPrice(BigDecimal.valueOf(10));
 
         MenuItem menuItem2 = new MenuItem();
         menuItem2.setId("menu-item-2");
-        menuItem2.setPrice(BigDecimal.valueOf(15));
+        menuItem2.setGrossPrice(BigDecimal.valueOf(15));
 
         when(menuItemRepository.findById("menu-item-1"))
                 .thenReturn(Optional.of(menuItem1));
@@ -214,7 +214,7 @@ class OrderServiceTest {
         for (CartItemRequest item : cartItemsRequest) {
             MenuItem menuItem = new MenuItem();
             menuItem.setId(item.getMenuItemId());
-            menuItem.setPrice(BigDecimal.valueOf(10)); // just a fixed test price
+            menuItem.setGrossPrice(BigDecimal.valueOf(10)); // just a fixed test price
             when(menuItemRepository.findById(item.getMenuItemId())).thenReturn(Optional.of(menuItem));
         }
 
