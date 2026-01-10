@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @Testcontainers
-class OrderIntegrationTest
+class OrderServiceIntegrationTest
  {
 
     @Container

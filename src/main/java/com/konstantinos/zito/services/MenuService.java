@@ -31,22 +31,28 @@ public class MenuService {
     public MenuService(MenuItemRepository menuItemRepository, CategoryRepository categoryRepository) {
         this.menuItemRepository = menuItemRepository;
         this.categoryRepository = categoryRepository;
-        menuItemCache = CacheBuilder.newBuilder()
+        
+        // Cache now consistently uses ID as the String key
+        this.menuItemCache = CacheBuilder.newBuilder()
                 .expireAfterAccess(12, TimeUnit.HOURS)
                 .maximumSize(1000)
-                .build(CacheLoader.from((name) -> {
-                    return findByName(name);
-                }));
+                .build(new CacheLoader<String, MenuItem>() {
+                    @Override
+                    public MenuItem load(String id) {
+                        return findByIdInternal(id);
+                    }
+                });
     }
 
-    // Get all menu items - will trigger a db call
+    // --- MenuItem Actions ---
+
     public List<MenuItem> findAllItems() {
         var allItems = menuItemRepository.findAll();
-        allItems.forEach(item -> menuItemCache.put(item.getName(), item));
+        // Populate cache with ID-based keys
+        allItems.forEach(item -> menuItemCache.put(item.getId(), item));
         return allItems;
     }
     
-    // Get Menu items map
     public Map<String, MenuItem> getMenuItemMap() {
         var allItems = menuItemRepository.findAll();
         var menuMap = new HashMap<String, MenuItem>();
@@ -54,79 +60,75 @@ public class MenuService {
         return menuMap;
     }
 
-
-    // Find a menuItem by name
-    public MenuItem findItem(String name) throws ExecutionException {
-        return menuItemCache.get(name);
+    public MenuItem findItem(String id) throws ExecutionException {
+        return menuItemCache.get(id);
     }
 
-    // Create a new menuItem
     public MenuItem saveItems(MenuItem menuItem) {
-        var item = menuItemRepository.save(menuItem);
-        menuItemCache.put(menuItem.getId(), menuItem);
-        return item;
+        var savedItem = menuItemRepository.save(menuItem);
+        menuItemCache.put(savedItem.getId(), savedItem);
+        return savedItem;
     }
 
-    // Create a  List of new menuItems
     public List<MenuItem> saveAllItems(List<MenuItem> menuItems) {
-        var item = menuItemRepository.saveAll(menuItems);
-        menuItemCache.putAll(menuItems.stream().collect(Collectors.toMap(MenuItem::getId, Function.identity())));
-        return item;
+        var savedItems = menuItemRepository.saveAll(menuItems);
+        menuItemCache.putAll(savedItems.stream()
+                .collect(Collectors.toMap(MenuItem::getId, Function.identity())));
+        return savedItems;
     }
 
-    // Update a menuItem
-    public MenuItem UpdateItem(String name, MenuItem menuItem) {
-        // Retrieve the MenuItem object with the given id from the database
-        MenuItem oldItem = menuItemRepository.findByName(name).orElseThrow(MenuItemNotFoundException::new);
-        if (name.equals(menuItem.getName())) {
+    public MenuItem UpdateItem(String id, MenuItem menuItem) {
+        MenuItem oldItem = menuItemRepository.findById(id)
+                .orElseThrow(() -> new MenuItemNotFoundException("Item not found with id: " + id));
+        
+        // Use ID for verification instead of name for better reliability
+        if (id.equals(menuItem.getId())) {
             oldItem.setDescription(menuItem.getDescription());
             oldItem.setName(menuItem.getName());
             oldItem.setGrossPrice(menuItem.getGrossPrice());
+            oldItem.setNetPrice(menuItem.getNetPrice());
             oldItem.setCategoryId(menuItem.getCategoryId());
-            menuItemCache.put(menuItem.getName(), oldItem);
-            return menuItemRepository.save(oldItem);
+            
+            MenuItem updated = menuItemRepository.save(oldItem);
+            menuItemCache.put(id, updated);
+            return updated;
         } else {
-            throw new MenuItemNotFoundException("mismatching names");
+            throw new MenuItemNotFoundException("Mismatching IDs during update");
         }
     }
 
-    // Delete a menuItem
     public void deleteItem(String id) {
         menuItemRepository.deleteById(id);
+        menuItemCache.invalidate(id);
     }
 
-    // Find a menuItem price by name
-    public BigDecimal getItemPrice(String name) {
+    public BigDecimal getItemPrice(String id) {
         try {
-            return menuItemCache.get(name).getGrossPrice();
+            return menuItemCache.get(id).getGrossPrice();
         } catch (Exception e) {
             return BigDecimal.valueOf(-1);
         }
     }
 
-    // Find a menuItem price by name
-    public int getItemType(String name) {
+    public int getItemType(String id) {
         try {
-            return menuItemCache.get(name).getCategoryId();
+            return menuItemCache.get(id).getCategoryId();
         } catch (Exception e) {
             return -1;
         }
     }
 
-    // internal supplier function
-    private MenuItem findByName(String name) {
-        Optional<MenuItem> menuItemOptional = menuItemRepository.findByName(name);
-        if (menuItemOptional.isPresent()) {
-            return menuItemOptional.get();
-        } else {
-            return new MenuItem();
-        }
+    private MenuItem findByIdInternal(String id) {
+        return menuItemRepository.findById(id)
+                .orElseThrow(() -> new MenuItemNotFoundException("MenuItem not found: " + id));
     }
 
        // Get all categories
     public List<Category> findAllCategories() {
         return categoryRepository.findAll();
     }
+
+    // --- Category Actions (Now using String IDs) --
 
     // Find a category by name
     public Optional<Category> findCategory(String name) {
