@@ -1,6 +1,6 @@
 package com.konstantinos.zito.services;
 
-
+import org.springframework.data.mongodb.core.aggregation.AccumulatorOperators.Sum;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
@@ -18,8 +19,10 @@ import com.konstantinos.zito.repositories.MenuItemRepository;
 import com.konstantinos.zito.repositories.OrderRepository;
 import com.konstantinos.zito.repositories.UserRepository;
 import com.konstantinos.zito.util.OrderTotals;
+import com.konstantinos.zito.model.MenuItem;
 import com.konstantinos.zito.model.Order;
 import com.konstantinos.zito.model.OrderStatus;
+import com.konstantinos.zito.model.TaxEntry;
 import com.konstantinos.zito.model.OrderItem;
 import com.konstantinos.zito.model.dto.OrderResponse;
 import com.konstantinos.zito.model.dto.CreateOrderRequest;
@@ -37,40 +40,41 @@ public class OrderService {
     private final MenuItemRepository menuItemRepository;
 
     public OrderService(OrderRepository orderRepository,
-                        UserRepository userRepository,
-                        MenuItemRepository menuItemRepository) {
+            UserRepository userRepository,
+            MenuItemRepository menuItemRepository) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.menuItemRepository = menuItemRepository;
     }
 
-     public OrderResponse createGuestOrder(CreateOrderRequest request) {
+    public OrderResponse createGuestOrder(CreateOrderRequest request) {
 
         Order order = new Order();
         order.setOrderPointId(request.getOrderPointId());
         order.setCartId(request.getCartId());
         order.setCreated_At(new Date());
         order.setLatest_update(new Date());
-        order.setOrderItems(calculateCartSnapshot(request));
+        order.setOrderItems(calculateCartSnapshot(request.getCartItems()));
         order.setPaid(false);
         order.setStatus(OrderStatus.NEW);
-        var orderTotals = calculateOrderTotals(order.getOrderItems());
-        order.setSubTotal(orderTotals.getSubtotal());
+        var orderTotals = calculateOrderTotals(order.getOrderItems(), order.getDiscountTotal());
+        order.setNetTotal(orderTotals.getNetTotal());
         order.setTaxTotals(orderTotals.getTaxTotalsByRate());
-        order.setGrandTotal(orderTotals.getGrandTotal());
+        order.setGrossTotal(orderTotals.getGrossTotal());
 
-
-        //email is optional
-        if (request.getGuestEmail() != null){order.setGuestEmail(request.getGuestEmail());}
+        // email is optional
+        if (request.getGuestEmail() != null) {
+            order.setGuestEmail(request.getGuestEmail());
+        }
 
         return mapToResponse(orderRepository.save(order));
     }
 
-     public Optional<OrderResponse> getGuestOrder(UUID orderId, UUID cartId, Optional<String> guestEmail) {
+    public Optional<OrderResponse> getGuestOrder(UUID orderId, UUID cartId, Optional<String> guestEmail) {
         // Try to find by orderId and cartId first
-       return orderRepository.findById(orderId).filter(order -> order.getCartId().equals(cartId) 
-       || guestEmail.map(email -> email.equals(order.getGuestEmail())).orElse(false))
-       .map(this::mapToResponse);
+        return orderRepository.findById(orderId).filter(order -> order.getCartId().equals(cartId)
+                || guestEmail.map(email -> email.equals(order.getGuestEmail())).orElse(false))
+                .map(this::mapToResponse);
     }
 
     // --- Create a new order --- by authenticated user
@@ -85,28 +89,28 @@ public class OrderService {
         order.setOrderPointId(request.getOrderPointId());
         order.setCreated_At(new Date());
         order.setLatest_update(new Date());
-        order.setOrderItems(calculateCartSnapshot(request));
+        order.setOrderItems(calculateCartSnapshot(request.getCartItems()));
 
         order.setPaid(false); // default
         order.setStatus(OrderStatus.NEW); // default or NEW
-        var orderTotals = calculateOrderTotals(order.getOrderItems());
-        order.setSubTotal(orderTotals.getSubtotal());
+        var orderTotals = calculateOrderTotals(order.getOrderItems(), request.getDiscount());
+        order.setGrossTotal(orderTotals.getGrossTotal());
         order.setTaxTotals(orderTotals.getTaxTotalsByRate());
-        order.setGrandTotal(orderTotals.getGrandTotal());
+        order.setNetTotal(orderTotals.getNetTotal());
+        order.setDiscountTotal(orderTotals.getDiscountTotal());
 
         return mapToResponse(orderRepository.save(order));
     }
 
     public List<OrderResponse> getUserOrder(UUID viewerId) {
-            return orderRepository.findByWaiterId(viewerId).stream()
-                    .map(this::mapToResponse).toList();
+        return orderRepository.findByWaiterId(viewerId).stream()
+                .map(this::mapToResponse).toList();
     }
 
     public List<OrderResponse> getOrdersByTable(String orderPointId) {
         return orderRepository.findByOrderPointId(orderPointId).stream()
                 .map(this::mapToResponse).toList();
     }
-
 
     // --- Update order ---
     public OrderResponse updateOrder(UUID orderId, UUID waiterId, CreateOrderRequest request) {
@@ -117,7 +121,7 @@ public class OrderService {
             throw new RuntimeException("Waiter mismatch");
         }
 
-        existingOrder.setOrderItems(calculateCartSnapshot(request));
+        existingOrder.setOrderItems(calculateCartSnapshot(request.getCartItems()));
         existingOrder.setLatest_update(new Date());
         existingOrder.setOrderPointId(request.getOrderPointId());
 
@@ -129,30 +133,11 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
         if (!order.getWaiterId().equals(waiterId)) {
-            //TODO: custom exception
+            // TODO: custom exception
             throw new RuntimeException("Waiter mismatch");
         }
         orderRepository.delete(order);
     }
-
-    // // --- Mapping helpers ---
-    // private Optional<CartItem>mapToCartItem(CartItemRequest request) {
-    //     var menuItem = menuItemRepository.findById(request.getMenuItemId());
-    //     if (menuItem.isPresent()) {
-    //         CartItem ci = new CartItem();
-    //                 ci.setMenuItemId(menuItem.get().getId());
-    //                 ci.setName(menuItem.get().getName());
-    //                 ci.setUnitPrice(menuItem.get().getPrice());
-    //                 ci.setQuantity(request.getQuantity());
-    //                 ci.setNote(request.getNote());
-    //                 ci.setModifiers(request.getModifiers());
-    //                 ci.setTotalPrice(menuItem.get().getPrice()
-    //                     .multiply(BigDecimal.valueOf(ci.getQuantity()).setScale(2, RoundingMode.HALF_EVEN)
-    //                     .subtract(ci.getDiscount() != null ? ci.getDiscount() : BigDecimal.ZERO)));
-    //         return Optional.of(ci);
-    //     }
-    //     return Optional.empty();
-    // }
 
     private OrderResponse mapToResponse(Order order) {
         OrderResponse response = new OrderResponse();
@@ -166,64 +151,129 @@ public class OrderService {
             var ciResp = new OrderItemResponse();
             ciResp.setMenuItemId(ci.getMenuItemId());
             ciResp.setName(ci.getName());
-            ciResp.setUnitPrice(ci.getUnitPrice());
+            ciResp.setUnitPrice(ci.getUnitPriceGross());
             ciResp.setQuantity(ci.getQuantity());
-            ciResp.setDiscount(ci.getDiscount());
+            ciResp.setDiscount(ci.getItemDiscount());
             ciResp.setNote(ci.getNote());
             ciResp.setModifiers(ci.getItemModifiers());
             ciResp.setTax(ci.getTaxRate());
-            ciResp.setSubtotal(ci.getSubTotal());
+            ciResp.setSubtotal(ci.getGrossTotal());
             return ciResp;
         }).toList());
-        response.setSubtotal(order.getSubTotal());
-        response.setTaxTotals(order.getTaxTotals());
-        response.setGrandTotal(order.getGrandTotal());
+        response.setSubTotal(order.getNetTotal());
+        response.setGrandTotal(order.getGrossTotal());
+        Map<String, BigDecimal> formattedTaxes = new HashMap<>();
+        order.getTaxTotals().forEach((rate, amount) -> {
+            // Normalize the rate to "10.0", "24.0", etc.
+            formattedTaxes.put(rate.stripTrailingZeros().toPlainString(), amount);
+        });
+        response.setTaxTotals(formattedTaxes);
         return response;
     }
 
-    private List<OrderItem> calculateCartSnapshot(CreateOrderRequest orderRequest) {
-      List<OrderItem> cartSnapshot = new ArrayList<>();
-        orderRequest.getCartItems().forEach(ciReq -> {  
-            
-            var menuItem = menuItemRepository.findById(ciReq.getMenuItemId())
-                .orElseThrow(() -> new RuntimeException("Menu item not found"));
 
-            OrderItem ci = new OrderItem();
-            ci.setMenuItemId(menuItem.getId());
-            ci.setName(menuItem.getName());
-            ci.setUnitPrice(menuItem.getPrice());
-            ci.setQuantity(ciReq.getQuantity());
-            ci.setTaxRate(menuItem.getTaxRate());
-            ci.setNote(ciReq.getNote());
-            ci.setItemModifiers(ciReq.getModifiers());
-            ci.setSubTotal(menuItem.getPrice()
-                .multiply(BigDecimal.valueOf(ci.getQuantity()).setScale(2, RoundingMode.HALF_EVEN)
-                .subtract(ci.getDiscount() != null ? ci.getDiscount() : BigDecimal.ZERO)));
-            cartSnapshot.add(ci);
-        });
-        return cartSnapshot;
+    // Item level discount - For each item, calculate the gross price after any item discount.
+    // Discounted Net Price = Net Price × (1 – Item Discount %)
+    // VAT = Discounted Net Price × VAT Rate
+    // Gross Price = Discounted Net Price + VAT
+    private List<OrderItem> calculateCartSnapshot(List<CartItemRequest> cartItems) {
+        return cartItems.stream().map(ciReq -> {
+            MenuItem menuItem = menuItemRepository.findById(ciReq.getMenuItemId())
+                    .orElseThrow(() -> new RuntimeException("Menu item not found: " + ciReq.getMenuItemId()));
+            
+            // Set base information
+            OrderItem item = new OrderItem();
+            item.setMenuItemId(menuItem.getId());
+            item.setName(menuItem.getName());
+            item.setQuantity(ciReq.getQuantity());
+            item.setNote(ciReq.getNote());
+            item.setItemModifiers(ciReq.getModifiers());// TODO :FIX modifiers pricing
+            item.setItemDiscount(
+                    ciReq.getItemDiscount() != 0.0d ? BigDecimal.valueOf(ciReq.getItemDiscount()) : BigDecimal.ZERO);
+
+            // 1. Initial Pricing Snapshots assuming EU Prices
+            BigDecimal netPrice = menuItem.getNetPrice();
+
+            // 2. Line net total
+            BigDecimal lineNetTotal = netPrice.multiply(BigDecimal.valueOf(item.getQuantity()));
+
+            // 3. Apply item discount to line and save
+            BigDecimal itemDiscountAmount = lineNetTotal.multiply(item.getItemDiscount())
+                    .divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP); // high precision for intermediate calc
+            BigDecimal lineNetAfterItemDiscount = lineNetTotal.subtract(itemDiscountAmount);
+            item.setDiscountTotal(itemDiscountAmount);
+
+            // 4. Compute line tax and gross () - Gross = Netprice * (1 - taxrate/100)
+            BigDecimal lineTax = calculateTax(lineNetAfterItemDiscount, menuItem.getTaxRate());
+            BigDecimal lineGross = lineNetAfterItemDiscount.add(lineTax);
+            
+            var taxEntry = new TaxEntry(menuItem.getTaxRate(), lineTax);
+            item.setNetTotal(lineNetAfterItemDiscount);
+            item.setGrossTotal(lineGross);
+
+            return item;
+        }).toList();
     }
 
-    public OrderTotals calculateOrderTotals(List<OrderItem> items) {
-        BigDecimal subtotal = BigDecimal.ZERO;
-        BigDecimal grandTotal = BigDecimal.ZERO;
+    // Order-Level Calculation - Sum all item gross prices, then apply the order discount.
+    // Subtotal Gross = Sum of all item gross prices
+    // Order Discount = Subtotal Gross × Order Discount %
+    // Final Gross Total = Subtotal Gross – Order Discount
+    public OrderTotals calculateOrderTotals(List<OrderItem> items, BigDecimal discountRate) {
+        BigDecimal orderNetTotal = BigDecimal.ZERO;
+        BigDecimal orderGrossTotal = BigDecimal.ZERO;
         Map<BigDecimal, BigDecimal> taxTotals = new HashMap<>();
 
-        for (OrderItem item : items) {
-            BigDecimal itemSubtotal = item.getSubTotal();
-            subtotal = subtotal.add(itemSubtotal);
+        BigDecimal totalNet = items.stream()
+                .map(OrderItem::getNetTotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            if (item.getTaxRate() != null) {
-                BigDecimal taxAmount = itemSubtotal.multiply(item.getTaxRate())
-                                                .setScale(2, RoundingMode.HALF_UP);
-                taxTotals.merge(item.getTaxRate(), taxAmount, BigDecimal::add);
-            }
+        BigDecimal orderDiscount = BigDecimal.ZERO;
+        if (discountRate != null && discountRate.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal totalOrderDiscount = totalNet.multiply(discountRate)
+                    .divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
+
+            items.forEach(item -> {
+                BigDecimal proportion = item.getNetTotal().divide(totalNet, 10, RoundingMode.HALF_UP);
+                BigDecimal discountForItem = totalOrderDiscount.multiply(proportion);
+
+                BigDecimal newNet = item.getNetTotal().subtract(discountForItem);
+                BigDecimal newTax = calculateTax(newNet, item.getTaxRate().getTaxRate());
+                BigDecimal newGross = newNet.add(newTax);
+
+                item.setNetTotal(newNet.setScale(2, RoundingMode.HALF_UP));
+                item.getTaxRate().setAmount(newTax);;
+                item.setGrossTotal(newGross.setScale(2, RoundingMode.HALF_UP));
+                item.setDiscountTotal(discountForItem.setScale(2, RoundingMode.HALF_UP));
+            });
+            // Needed due to values inside lambda needing to be final
+            orderDiscount = totalOrderDiscount;
         }
 
-        taxTotals.values().stream().map(a -> a.setScale(2, RoundingMode.HALF_UP));
-        grandTotal = subtotal.add(taxTotals.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add));
-        grandTotal.setScale(2, RoundingMode.HALF_UP);
+        for (OrderItem item : items) {
+            orderNetTotal = orderNetTotal.add(item.getNetTotal());
+            orderGrossTotal = orderGrossTotal.add(item.getGrossTotal());
 
-        return new OrderTotals(grandTotal, subtotal, taxTotals);
+            if (item.getTaxRate() != null && item.getTaxRate().getTaxRate() != null) {
+                taxTotals.merge(item.getTaxRate().getTaxRate(), item.getTaxRate().getAmount(), BigDecimal::add);
+            }
+        }
+        // 7️⃣ Build TaxTotal list (round at the end)
+        List<TaxEntry> taxTotalist = taxTotals.entrySet().stream()
+                .map(e -> new TaxEntry(e.getKey(), e.getValue().setScale(2, RoundingMode.HALF_UP)))
+                .collect(Collectors.toList());
+
+        return new OrderTotals(orderGrossTotal, orderNetTotal, orderDiscount, taxTotals);
+    }
+
+    public BigDecimal calculateTax(BigDecimal netPrice, BigDecimal taxRate) {
+        return netPrice.multiply(taxRate.divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP));
+    }
+
+    public BigDecimal calculateEUGross(BigDecimal netPrice, BigDecimal taxRate) {
+        // Compute line tax and gross () - Gross = Netprice * (1 - taxrate/100)
+        BigDecimal taxRateDivisor = taxRate.divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
+        BigDecimal taxTotal = netPrice.multiply(taxRateDivisor);
+        return netPrice.add(taxTotal);
     }
 }

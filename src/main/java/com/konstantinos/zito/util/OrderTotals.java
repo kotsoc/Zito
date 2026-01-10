@@ -4,24 +4,25 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
 
-public class OrderTotals {
-    private final BigDecimal grandTotal;
-    private final BigDecimal subtotal;
-    private final LinkedHashMap<BigDecimal, BigDecimal> taxTotalsByRate;
+import com.konstantinos.zito.model.TaxEntry;
 
-    public OrderTotals(BigDecimal grandTotal, BigDecimal subtotal, Map<BigDecimal, BigDecimal> taxTotals) {
-        this.grandTotal = grandTotal;
-        this.subtotal = subtotal;
+public class OrderTotals {
+    private final BigDecimal grossTotal;
+    private final BigDecimal netTotal;
+    private final BigDecimal discountTotal;
+    private final List<TaxEntry> taxTotalsByRate;
+
+    public OrderTotals(BigDecimal grandTotal, BigDecimal subtotal,BigDecimal discountAmount,  List<TaxEntry> taxTotals) {
+        this.grossTotal = grandTotal;
+        this.netTotal = subtotal;
+        this.discountTotal =discountAmount;
 
         // Sort tax rates ascending for receipt display
-        LinkedHashMap<BigDecimal, BigDecimal> sorted = new LinkedHashMap<>();
-        taxTotals.entrySet().stream()
-                 .sorted(Map.Entry.comparingByKey())
-                 .forEach(e -> sorted.put(e.getKey(), e.getValue()));
-        this.taxTotalsByRate = sorted;
+        this.taxTotalsByRate = taxTotals;
     }
 
-    public BigDecimal getGrandTotal() { return grandTotal; }
-    public BigDecimal getSubtotal() { return subtotal; }
-    public Map<BigDecimal, BigDecimal> getTaxTotalsByRate() { return taxTotalsByRate; }
+    public BigDecimal getGrossTotal() { return grossTotal; }
+    public BigDecimal getNetTotal() { return netTotal; }
+    public BigDecimal getDiscountTotal() {return discountTotal;}
+    public List<TaxEntry> getTaxTotalsByRate() { return taxTotalsByRate; }
 }

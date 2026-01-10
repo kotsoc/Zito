@@ -63,7 +63,7 @@ public class MenuService {
         if (name.equals(menuItem.getName())) {
             oldItem.setDescription(menuItem.getDescription());
             oldItem.setName(menuItem.getName());
-            oldItem.setPrice(menuItem.getPrice());
+            oldItem.setGrossPrice(menuItem.getGrossPrice());
             oldItem.setCategoryId(menuItem.getCategoryId());
             menuItemCache.put(menuItem.getName(), oldItem);
             return menuItemRepository.save(oldItem);
@@ -80,7 +80,7 @@ public class MenuService {
     // Find a menuItem price by name
     public BigDecimal getItemPrice(String name) {
         try {
-            return menuItemCache.get(name).getPrice();
+            return menuItemCache.get(name).getGrossPrice();
         } catch (Exception e) {
             return BigDecimal.valueOf(-1);
         }
