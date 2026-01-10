@@ -57,7 +57,7 @@ public class OrderService {
         order.setOrderItems(calculateCartSnapshot(request.getCartItems()));
         order.setPaid(false);
         order.setStatus(OrderStatus.NEW);
-        var orderTotals = calculateOrderTotals(order.getOrderItems(), order.getDiscountTotal());
+        var orderTotals = calculateOrderTotals(order.getOrderItems(), request.getDiscount());
         order.setNetTotal(orderTotals.getNetTotal());
         order.setTaxTotals(orderTotals.getTaxTotalsByRate());
         order.setGrossTotal(orderTotals.getGrossTotal());
@@ -222,7 +222,7 @@ public class OrderService {
     // Order Discount = Subtotal Gross × Order Discount %
     // Final Gross Total = Subtotal Gross – Order Discount
     public OrderTotals calculateOrderTotals(List<OrderItem> items, BigDecimal discountRate) {
-        BigDecimal orderNetTotal = BigDecimal.ZERO;
+        BigDecimal orderNetAfterDiscount = BigDecimal.ZERO;
         BigDecimal orderGrossTotal = BigDecimal.ZERO;
         Map<BigDecimal, BigDecimal> taxTotals = new HashMap<>();
 
@@ -255,10 +255,10 @@ public class OrderService {
                     BigDecimal newTax = calculateTax(newNet, item.getTaxEntry().getTaxRate());
                     BigDecimal newGross = newNet.add(newTax);
 
-                    item.setNetTotal(newNet.setScale(2, RoundingMode.HALF_UP));
-                    item.getTaxEntry().setAmount(newTax);;
-                    item.setGrossTotal(newGross.setScale(2, RoundingMode.HALF_UP));
-                    item.setDiscountTotal(discountForItem.setScale(2, RoundingMode.HALF_UP));
+                    item.setNetTotal(newNet.setScale(6, RoundingMode.HALF_UP));
+                    item.getTaxEntry().setAmount(newTax);
+                    item.setGrossTotal(newGross.setScale(6, RoundingMode.HALF_UP));
+                    item.setDiscountTotal(discountForItem.setScale(6, RoundingMode.HALF_UP));
             }
 
             //Rounding to 2 decimals
@@ -266,7 +266,7 @@ public class OrderService {
         }
 
         for (OrderItem item : items) {
-            orderNetTotal = orderNetTotal.add(item.getNetTotal());
+            orderNetAfterDiscount = orderNetAfterDiscount.add(item.getNetTotal());
             orderGrossTotal = orderGrossTotal.add(item.getGrossTotal());
 
             if (item.getTaxEntry() != null && item.getTaxEntry().getTaxRate() != null) {
@@ -278,7 +278,10 @@ public class OrderService {
                 .map(e -> new TaxEntry(e.getKey(), e.getValue().setScale(2, RoundingMode.HALF_UP)))
                 .collect(Collectors.toList());
 
-        return new OrderTotals(orderGrossTotal, orderNetTotal, orderDiscount, taxTotalist);
+        //Rounding AND SCALE
+        
+        
+        return new OrderTotals(orderGrossTotal.setScale(2, RoundingMode.HALF_UP), orderNetAfterDiscount.setScale(2, RoundingMode.HALF_UP), orderDiscount, taxTotalist);
     }
 
     public BigDecimal calculateTax(BigDecimal netPrice, BigDecimal taxRate) {
