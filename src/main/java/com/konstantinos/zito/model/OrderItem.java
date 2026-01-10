@@ -31,7 +31,7 @@ public class OrderItem {
     private BigDecimal discountTotal;      //Calculated at checkout
     private BigDecimal modifierTotal;       //calculated at checkout
 
-    private TaxEntry taxRate;        // tax rate: decimal
+    private TaxEntry taxEntry;        // tax rate: decimal
     private BigDecimal netTotal;
     private BigDecimal grossTotal;        
 }

@@ -1,7 +1,9 @@
 package com.konstantinos.zito.services;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -43,6 +45,15 @@ public class MenuService {
         allItems.forEach(item -> menuItemCache.put(item.getName(), item));
         return allItems;
     }
+    
+    // Get Menu items map
+    public Map<String, MenuItem> getMenuItemMap() {
+        var allItems = menuItemRepository.findAll();
+        var menuMap = new HashMap<String, MenuItem>();
+        allItems.forEach(item -> menuMap.put(item.getId(), item));
+        return menuMap;
+    }
+
 
     // Find a menuItem by name
     public MenuItem findItem(String name) throws ExecutionException {
@@ -50,9 +61,16 @@ public class MenuService {
     }
 
     // Create a new menuItem
+    public MenuItem saveItems(MenuItem menuItem) {
+        var item = menuItemRepository.save(menuItem);
+        menuItemCache.put(menuItem.getId(), menuItem);
+        return item;
+    }
+
+    // Create a  List of new menuItems
     public List<MenuItem> saveAllItems(List<MenuItem> menuItems) {
         var item = menuItemRepository.saveAll(menuItems);
-        menuItemCache.putAll(menuItems.stream().collect(Collectors.toMap(MenuItem::getName, Function.identity())));
+        menuItemCache.putAll(menuItems.stream().collect(Collectors.toMap(MenuItem::getId, Function.identity())));
         return item;
     }
 

@@ -120,7 +120,8 @@ public class OrderService {
         if (!existingOrder.getWaiterId().equals(waiterId)) {
             throw new RuntimeException("Waiter mismatch");
         }
-
+        //TODO:: RECACULATE THE TOTALS
+        //TODO:: ADD TO CHANGED ORDERS REPOSITORY
         existingOrder.setOrderItems(calculateCartSnapshot(request.getCartItems()));
         existingOrder.setLatest_update(new Date());
         existingOrder.setOrderPointId(request.getOrderPointId());
@@ -156,18 +157,13 @@ public class OrderService {
             ciResp.setDiscount(ci.getItemDiscount());
             ciResp.setNote(ci.getNote());
             ciResp.setModifiers(ci.getItemModifiers());
-            ciResp.setTax(ci.getTaxRate());
-            ciResp.setSubtotal(ci.getGrossTotal());
+            ciResp.setTax(ci.getUnitTax());
+            ciResp.setLineTotal(ci.getGrossTotal()); // Gross for EU
             return ciResp;
         }).toList());
-        response.setSubTotal(order.getNetTotal());
-        response.setGrandTotal(order.getGrossTotal());
-        Map<String, BigDecimal> formattedTaxes = new HashMap<>();
-        order.getTaxTotals().forEach((rate, amount) -> {
-            // Normalize the rate to "10.0", "24.0", etc.
-            formattedTaxes.put(rate.stripTrailingZeros().toPlainString(), amount);
-        });
-        response.setTaxTotals(formattedTaxes);
+        response.setNetTotal(order.getNetTotal());
+        response.setGrossTotal(order.getGrossTotal());
+        response.setTaxTotals(order.getTaxTotals());
         return response;
     }
 
@@ -177,10 +173,15 @@ public class OrderService {
     // VAT = Discounted Net Price × VAT Rate
     // Gross Price = Discounted Net Price + VAT
     private List<OrderItem> calculateCartSnapshot(List<CartItemRequest> cartItems) {
+        var menuItemList = menuItemRepository.findAllById(cartItems.stream().map(CartItemRequest::getMenuItemId).toList());
+        Map<String, MenuItem> menuItemMap = menuItemList.stream() .collect(
+            Collectors.toMap(MenuItem::getId, item -> item));
+        
         return cartItems.stream().map(ciReq -> {
-            MenuItem menuItem = menuItemRepository.findById(ciReq.getMenuItemId())
-                    .orElseThrow(() -> new RuntimeException("Menu item not found: " + ciReq.getMenuItemId()));
-            
+            if(menuItemMap.size() < cartItems.size()){
+                throw new RuntimeException("Found fewer Menu Items than request, wrong MenuItem id passed");
+            }
+            var menuItem = menuItemMap.get(ciReq.getMenuItemId());
             // Set base information
             OrderItem item = new OrderItem();
             item.setMenuItemId(menuItem.getId());
@@ -189,7 +190,7 @@ public class OrderService {
             item.setNote(ciReq.getNote());
             item.setItemModifiers(ciReq.getModifiers());// TODO :FIX modifiers pricing
             item.setItemDiscount(
-                    ciReq.getItemDiscount() != 0.0d ? BigDecimal.valueOf(ciReq.getItemDiscount()) : BigDecimal.ZERO);
+                    ciReq.getItemDiscount() != 0 ? BigDecimal.valueOf(ciReq.getItemDiscount()) : BigDecimal.ZERO);
 
             // 1. Initial Pricing Snapshots assuming EU Prices
             BigDecimal netPrice = menuItem.getNetPrice();
@@ -208,6 +209,7 @@ public class OrderService {
             BigDecimal lineGross = lineNetAfterItemDiscount.add(lineTax);
             
             var taxEntry = new TaxEntry(menuItem.getTaxRate(), lineTax);
+            item.setTaxEntry(taxEntry);
             item.setNetTotal(lineNetAfterItemDiscount);
             item.setGrossTotal(lineGross);
 
@@ -231,31 +233,44 @@ public class OrderService {
         BigDecimal orderDiscount = BigDecimal.ZERO;
         if (discountRate != null && discountRate.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal totalOrderDiscount = totalNet.multiply(discountRate)
-                    .divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
+                    .divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP);
 
-            items.forEach(item -> {
-                BigDecimal proportion = item.getNetTotal().divide(totalNet, 10, RoundingMode.HALF_UP);
-                BigDecimal discountForItem = totalOrderDiscount.multiply(proportion);
+            BigDecimal discountConsumed = BigDecimal.ZERO;
+            for(int i=0; i < items.size(); i++){
+                var item = items.get(i);
+                BigDecimal discountForItem;
+             
+                if(i == items.size()-1){
+                    // The last item doesn't use a percentage calculation.
+                    // It takes the remaining balance of the total discount.
+                    discountForItem = totalOrderDiscount.subtract(discountConsumed);
+                } else {
+                    //compensate for rounding cents on last item
+                    BigDecimal proportion = item.getNetTotal().divide(totalNet, 6, RoundingMode.HALF_UP);
+                    discountForItem = totalOrderDiscount.multiply(proportion).setScale(6, RoundingMode.HALF_UP);
+                    discountConsumed = discountConsumed.add(discountForItem);
+                }
 
-                BigDecimal newNet = item.getNetTotal().subtract(discountForItem);
-                BigDecimal newTax = calculateTax(newNet, item.getTaxRate().getTaxRate());
-                BigDecimal newGross = newNet.add(newTax);
+                    BigDecimal newNet = item.getNetTotal().subtract(discountForItem);
+                    BigDecimal newTax = calculateTax(newNet, item.getTaxEntry().getTaxRate());
+                    BigDecimal newGross = newNet.add(newTax);
 
-                item.setNetTotal(newNet.setScale(2, RoundingMode.HALF_UP));
-                item.getTaxRate().setAmount(newTax);;
-                item.setGrossTotal(newGross.setScale(2, RoundingMode.HALF_UP));
-                item.setDiscountTotal(discountForItem.setScale(2, RoundingMode.HALF_UP));
-            });
-            // Needed due to values inside lambda needing to be final
-            orderDiscount = totalOrderDiscount;
+                    item.setNetTotal(newNet.setScale(2, RoundingMode.HALF_UP));
+                    item.getTaxEntry().setAmount(newTax);;
+                    item.setGrossTotal(newGross.setScale(2, RoundingMode.HALF_UP));
+                    item.setDiscountTotal(discountForItem.setScale(2, RoundingMode.HALF_UP));
+            }
+
+            //Rounding to 2 decimals
+            orderDiscount = totalOrderDiscount.setScale(2, RoundingMode.HALF_UP);
         }
 
         for (OrderItem item : items) {
             orderNetTotal = orderNetTotal.add(item.getNetTotal());
             orderGrossTotal = orderGrossTotal.add(item.getGrossTotal());
 
-            if (item.getTaxRate() != null && item.getTaxRate().getTaxRate() != null) {
-                taxTotals.merge(item.getTaxRate().getTaxRate(), item.getTaxRate().getAmount(), BigDecimal::add);
+            if (item.getTaxEntry() != null && item.getTaxEntry().getTaxRate() != null) {
+                taxTotals.merge(item.getTaxEntry().getTaxRate(), item.getTaxEntry().getAmount(), BigDecimal::add);
             }
         }
         // 7️⃣ Build TaxTotal list (round at the end)
@@ -263,7 +278,7 @@ public class OrderService {
                 .map(e -> new TaxEntry(e.getKey(), e.getValue().setScale(2, RoundingMode.HALF_UP)))
                 .collect(Collectors.toList());
 
-        return new OrderTotals(orderGrossTotal, orderNetTotal, orderDiscount, taxTotals);
+        return new OrderTotals(orderGrossTotal, orderNetTotal, orderDiscount, taxTotalist);
     }
 
     public BigDecimal calculateTax(BigDecimal netPrice, BigDecimal taxRate) {

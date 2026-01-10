@@ -22,8 +22,8 @@ public class OrderResponse {
 
     // Financials
     private String currency;
-    private BigDecimal grandTotal;        // total after discounts
-    private BigDecimal subTotal;     // sum of item subtotals
+    private BigDecimal grossTotal;        // total after discount + tax
+    private BigDecimal netTotal;     // discounted net total
     private List<TaxEntry> taxTotals;
     private BigDecimal discount;
     private BigDecimal tip;

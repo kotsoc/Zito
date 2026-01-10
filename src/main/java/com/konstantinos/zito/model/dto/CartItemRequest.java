@@ -2,6 +2,8 @@ package com.konstantinos.zito.model.dto;
 
 import java.util.List;
 
+import javax.annotation.Nonnegative;
+
 import com.konstantinos.zito.model.OrderItemModifier;
 
 import jakarta.validation.constraints.Min;
@@ -25,5 +27,6 @@ public class CartItemRequest {
     private String note;
 
     private List<OrderItemModifier> modifiers;
-    private Double itemDiscount;
+    @Nonnegative
+    private int itemDiscount;
 }

@@ -41,10 +41,10 @@ class OrderServiceTest {
         var itemMod2 = new OrderItemModifier(UUID.randomUUID(), "extra Cheese", BigDecimal.valueOf(2), null, null, null, null);
 
         CartItemRequest item1 = new CartItemRequest(
-                "menu-item-1", 2, "No onions", List.of(itemMod1), null
+                "menu-item-1", 2, "No onions", List.of(itemMod1), 0
         );
         CartItemRequest item2 = new CartItemRequest(
-                "menu-item-2", 1, "No tomatoes", List.of(itemMod2), null
+                "menu-item-2", 1, "No tomatoes", List.of(itemMod2), 5
         );
         cartItemsRequest = List.of(item1, item2);
 
@@ -60,12 +60,17 @@ class OrderServiceTest {
 
         MenuItem menuItem1 = new MenuItem();
         menuItem1.setId("menu-item-1");
-        menuItem1.setGrossPrice(BigDecimal.valueOf(10));
+        menuItem1.setNetPrice(BigDecimal.valueOf(10));
+        menuItem1.setTaxRate(BigDecimal.valueOf(13));
 
         MenuItem menuItem2 = new MenuItem();
         menuItem2.setId("menu-item-2");
-        menuItem2.setGrossPrice(BigDecimal.valueOf(15));
+        menuItem2.setNetPrice(BigDecimal.valueOf(15));
+        menuItem2.setTaxRate(BigDecimal.valueOf(23));
+        var menulist = List.of(menuItem1, menuItem2);
 
+        when(menuItemRepository.findAllById(List.of("menu-item-1", "menu-item-2")))
+                .thenReturn(menulist);
         when(menuItemRepository.findById("menu-item-1"))
                 .thenReturn(Optional.of(menuItem1));
         when(menuItemRepository.findById("menu-item-2"))

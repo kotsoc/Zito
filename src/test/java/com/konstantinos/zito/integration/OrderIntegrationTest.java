@@ -23,7 +23,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @Testcontainers
-class OrderServiceEUTaxTest {
+class OrderIntegrationTest
+ {
 
     @Container
     static MongoDBContainer mongoDBContainer = new MongoDBContainer("mongo:6.0");
@@ -41,6 +42,7 @@ class OrderServiceEUTaxTest {
     void setup() {
         orderRepository.deleteAll();
         menuItemRepository.deleteAll();
+
     }
 
     @Test
@@ -53,9 +55,9 @@ class OrderServiceEUTaxTest {
         CreateOrderRequest request = new CreateOrderRequest();
         request.setDiscount(BigDecimal.valueOf(10.0)); // 10% Off
         request.setCartItems(List.of(
-            new CartItemRequest(pizzaId, 1, "null",List.of() ,7.5d),
-            new CartItemRequest(wineId, 1, "null",List.of() ,0.0d),
-            new CartItemRequest(sodaId,1, "null",List.of() ,7.5d)
+            new CartItemRequest(pizzaId, 1, "null",List.of() ,7),
+            new CartItemRequest(wineId, 1, "null",List.of() ,0),
+            new CartItemRequest(sodaId,1, "null",List.of() ,7)
         ));
 
         // WHEN
@@ -83,7 +85,7 @@ class OrderServiceEUTaxTest {
 
         CreateOrderRequest request = new CreateOrderRequest();
         request.setDiscount(BigDecimal.valueOf(0.0)); 
-        request.setCartItems(List.of( new CartItemRequest(snackId,3, "null",List.of() ,0.0)));
+        request.setCartItems(List.of( new CartItemRequest(snackId,3, "null",List.of() ,0)));
 
         // WHEN
         OrderResponse response = orderService.createGuestOrder(request);
@@ -98,7 +100,7 @@ class OrderServiceEUTaxTest {
 
     private String createEUItem(String name, String price, String rate) {
         MenuItem item = new MenuItem();
-        String id = "name"+123+"id";
+        String id = name+123+"id";
         item.setId(id);
         item.setName(name);
         item.setNetPrice(BigDecimal.valueOf(Double.parseDouble(price)));
@@ -108,10 +110,10 @@ class OrderServiceEUTaxTest {
         return menuItemRepository.save(item).getId();
     }
 
-    private void assertTaxAtRate(Order order, String rateStr, String expected) {
-        BigDecimal rate = BigDecimal.valueOf(Double.parseDouble(rateStr));
-        assertThat(order.getTaxTotals().get(rate))
+    private void assertTaxAtRate(Order order, String rateStr, String expectedTax) {
+        BigDecimal rate = new BigDecimal(rateStr);
+        assertThat(order.getTaxTotals().get(0).getAmount())
             .as("VAT for rate " + rateStr)
-            .isEqualByComparingTo(expected);
+            .isEqualByComparingTo(expectedTax);
     }
 }

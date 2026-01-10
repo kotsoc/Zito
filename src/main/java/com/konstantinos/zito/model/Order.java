@@ -55,10 +55,10 @@ public class Order {
     private BigDecimal orderDiscount; //
     private BigDecimal tip;
 
-    // Calculated Totals
-    private BigDecimal discountTotal;      //Calculated at checkout
+    // Financial info - Calculated at checkout
     private BigDecimal modifierTotal;       //calculated at checkout
+    private BigDecimal discountTotal;      //Calculated at checkout
     private BigDecimal netTotal;
     private BigDecimal grossTotal;
-    private Map<BigDecimal, BigDecimal> taxTotals;
+    private List<TaxEntry> taxTotals;
 }

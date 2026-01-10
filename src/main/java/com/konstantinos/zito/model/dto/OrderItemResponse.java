@@ -13,11 +13,11 @@ import lombok.NoArgsConstructor;
 public class OrderItemResponse {
     private String menuItemId;        
     private String name;              
-    private BigDecimal unitPrice;         // Calculated price from backend
+    private BigDecimal unitPrice;         // SnapShot at time of creation
     private int quantity;
-    private BigDecimal discount;
+    private BigDecimal discount;    
     private BigDecimal tax;
-    private BigDecimal subtotal;      // price * quantity - discount                 
+    private BigDecimal lineTotal;      // price * quantity - discount                 
     private List<OrderItemModifier> modifiers;
     private String note;   
 }
