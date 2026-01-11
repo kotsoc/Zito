@@ -102,12 +102,14 @@ class OrderServiceTest {
             Map<String, String> expectedTaxes) {
         // GIVEN
         // Setup the Menu Library (Common for all cases)
-        MenuItem mi1 = createMenuItem("m1", "10.00", "13");
-        MenuItem mi2 = createMenuItem("m2", "20.00", "23");
-        MenuItem mi3 = createMenuItem("m3", "5.00", "0");
-        MenuItem mi4 = createMenuItem("m4", "100.00", "10");
+        MenuItem mi1 = createMenuItem("mi1", "10.00", "13");
+        MenuItem mi2 = createMenuItem("mi2", "20.00", "23");
+        MenuItem mi3 = createMenuItem("mi3", "5.00", "0");
+        MenuItem mi4 = createMenuItem("mi4", "100.00", "10");
+        MenuItem mi5     = createMenuItem("mi5",     "4.333", "24");
+        MenuItem mi_free = createMenuItem("mi_free", "0.00",  "0");
 
-        when(menuItemService.findAllItemsById(any())).thenReturn(List.of(mi1, mi2, mi3, mi4));
+        when(menuItemService.findAllItemsById(any())).thenReturn(List.of(mi1, mi2, mi3, mi4, mi5, mi_free));
         when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
 
         CreateOrderRequest request = new CreateOrderRequest();
@@ -140,35 +142,70 @@ class OrderServiceTest {
                 null, null);
 
         return Stream.of(
-                // CASE #0: Simple No Discount
-                // Args: CartItems, OrderDiscount, ExpNet, ExpGross, ExpTaxes Map
-                Arguments.of(
-                        List.of(new CartItemRequest("m1", 1, "", List.of(), 0)),
-                        BigDecimal.ZERO, "10.00", "11.30", Map.of("13", "1.30")),
+            // CASE #0: Simple No Discount
+            // Args: CartItems, OrderDiscount, ExpNet, ExpGross, ExpTaxes Map
+            Arguments.of(
+                    List.of(new CartItemRequest("mi1", 1, "", List.of(), 0)),
+                    BigDecimal.ZERO, "10.00", "11.30", Map.of("13", "1.30")),
 
-                // CASE #1: Mixed VAT + 10% Discount
-                Arguments.of(
-                        List.of(
-                                new CartItemRequest("m1", 1, "", List.of(), 0),
-                                new CartItemRequest("m2", 1, "", List.of(), 0)),
-                        new BigDecimal("10"), "27.00", "32.31", Map.of("13", "1.17", "23", "4.14")),
+            // CASE #1: Mixed VAT + 10% Discount
+            Arguments.of(
+                    List.of(
+                            new CartItemRequest("mi1", 1, "", List.of(), 0),
+                            new CartItemRequest("mi2", 1, "", List.of(), 0)),
+                    new BigDecimal("10"), "27.00", "32.31", Map.of("13", "1.17", "23", "4.14")),
 
-                // CASE #2: Modifiers (No Discount) - TDD Target
-                Arguments.of(
-                        List.of(new CartItemRequest("m1", 1, "", List.of(extraBacon), 0)),
-                        BigDecimal.ZERO, "13.00", "14.69", Map.of("13", "1.69")),
+            // CASE #2: Modifiers (No Discount) - TDD Target
+            Arguments.of(
+                    List.of(new CartItemRequest("mi1", 1, "", List.of(extraBacon), 0)),
+                    BigDecimal.ZERO, "13.00", "14.69", Map.of("13", "1.69")),
 
-                // CASE #4: Mixed Taxable and Exempt + 20% Discount
-                Arguments.of(
-                        List.of(
-                                new CartItemRequest("m2", 1, "", List.of(), 0),
-                                new CartItemRequest("m3", 1, "", List.of(), 0)),
-                        new BigDecimal("20"), "20.00", "23.68", Map.of("23", "3.68", "0", "0.00")),
+            // CASE #4: Mixed Taxable and Exempt + 20% Discount
+            Arguments.of(
+                    List.of(
+                            new CartItemRequest("mi2", 1, "", List.of(), 0),
+                            new CartItemRequest("mi3", 1, "", List.of(), 0)),
+                    new BigDecimal("20"), "20.00", "23.68", Map.of("23", "3.68", "0", "0.00")),
 
-                // CASE #5: Modifiers + 50% Discount - Ultimate Test
-                Arguments.of(
-                        List.of(new CartItemRequest("m1", 1, "", List.of(cheapBacon), 0)),
-                        new BigDecimal("50"), "6.00", "6.78", Map.of("13", "0.78")));
+            // CASE #5: Modifiers + 50% Discount - Ultimate Test
+            Arguments.of(
+                    List.of(new CartItemRequest("mi1", 1, "", List.of(cheapBacon), 0)),
+                    new BigDecimal("50"), "6.00", "6.78", Map.of("13", "0.78")),
+                
+            // CASE #6: High Precision Net Price (Common with POS/DB storage)
+            // Simulates a DB storing more decimal places than UI
+            Arguments.of(
+                    List.of(new CartItemRequest("mi5", 2, "", List.of(), 0)), // m5 = 4.333 net, 24% VAT
+                    BigDecimal.ZERO, "8.67", "10.75", Map.of("24", "2.08") // VAT extracted from 10.739...
+            ),
+            // CASE #7: Free Item (Zero Price)
+            Arguments.of(
+                    List.of(new CartItemRequest("mi_free", 1, "", List.of(), 0)), // m_free = 0.00 net, 0% VAT
+                    BigDecimal.ZERO, "0.00", "0.00", Map.of("0", "0.00")
+            ),
+            // CASE #8: Discount Applied Before VAT Across Rates with Modifiers
+            Arguments.of(
+                    List.of(
+                            new CartItemRequest("mi1", 1, "", List.of(extraBacon), 0), // 10 + 3 = 13 net
+                            new CartItemRequest("mi2", 1, "", List.of(), 0)            // 20 net
+                    ),
+                    new BigDecimal("10"), "29.70", "35.36", Map.of( // 33 net * 0.9 = 29.70
+                            "13", "1.52", // 13→0.9=11.7 → VAT=1.521 ≈1.52
+                            "23", "4.14"  // 20→0.9=18 → VAT=18*0.23=4.14
+                    )
+            ),
+            // CASE #9: 0% Discount but Mixed Modifiers & Multiple Quantities
+            Arguments.of(
+                    List.of(
+                            new CartItemRequest("mi1", 2, "", List.of(extraBacon), 0), // 2 *10 +(3)=23
+                            new CartItemRequest("mi3", 1, "", List.of(), 0)            // 5 0% VAT item
+                    ),
+                    BigDecimal.ZERO, "28.00", "30.99", Map.of(
+                            "13", "2.99",
+                            "0", "0.00"
+                    )
+            )
+        );
     }
 
     @Test
@@ -336,7 +373,7 @@ class OrderServiceTest {
     void testUpdateOrder_RecalculatesTotals() {
         // GIVEN: An existing order with 1 item (Net 10.00, Tax 10%)
         UUID waiterId = UUID.randomUUID();
-        MenuItem m1 = createMenuItem("m1", "10.00", "10");
+        MenuItem m11 = createMenuItem("m11", "10.00", "10");
 
         Order existingOrder = new Order();
         existingOrder.setWaiterId(waiterId);
@@ -344,13 +381,13 @@ class OrderServiceTest {
         existingOrder.setGrossTotal(BigDecimal.ZERO);
 
         when(orderRepository.findById(existingOrder.getId())).thenReturn(Optional.of(existingOrder));
-        when(menuItemService.findAllItemsById(any())).thenReturn(List.of(m1));
+        when(menuItemService.findAllItemsById(any())).thenReturn(List.of(m11));
         when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
 
         // WHEN: Update request changes quantity from 1 to 2
         CreateOrderRequest updateRequest = new CreateOrderRequest();
         updateRequest.setOrderPointId("table-1");
-        updateRequest.setCartItems(List.of(new CartItemRequest("m1", 2, "", List.of(), 0)));
+        updateRequest.setCartItems(List.of(new CartItemRequest("m11", 2, "", List.of(), 0)));
         updateRequest.setDiscountPercent(BigDecimal.ZERO);
 
         OrderResponse response = orderService.updateOrder(existingOrder.getId(), waiterId, updateRequest);
