@@ -54,7 +54,7 @@ class OrderServiceIntegrationTest
         String sodaId = createEUItem("Soda", "4.50", "13.0");
 
         CreateOrderRequest request = new CreateOrderRequest();
-        request.setDiscount(BigDecimal.valueOf(10.0)); // 10% Off
+        request.setDiscountPercent(BigDecimal.valueOf(10.0)); // 10% Off
         request.setCartItems(List.of(
             new CartItemRequest(pizzaId, 1, "null",List.of() ,0),
             new CartItemRequest(wineId, 1, "null",List.of() ,0),
@@ -88,7 +88,7 @@ class OrderServiceIntegrationTest
         String snackId = createEUItem("Snack", "2.99", "10.0");
 
         CreateOrderRequest request = new CreateOrderRequest();
-        request.setDiscount(BigDecimal.valueOf(0.0));
+        request.setDiscountPercent(BigDecimal.valueOf(0.0));
         request.setCartItems(List.of(new CartItemRequest(snackId, 3, "null", List.of(), 0)));
 
         // WHEN

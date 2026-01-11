@@ -8,11 +8,16 @@ import com.konstantinos.zito.repositories.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -24,14 +29,11 @@ class OrderServiceTest {
     private UserRepository userRepository;
     private MenuService menuItemService;
     private OrderService orderService;
+
+    // Shared test data
     private List<CartItemRequest> cartItemsRequest;
     private OrderItem cartItem1;
     private OrderItem cartItem2;
-
-
-    public OrderServiceTest() {
-     
-    }   
 
     @BeforeEach
     void setUp() {
@@ -39,44 +41,134 @@ class OrderServiceTest {
         userRepository = mock(UserRepository.class);
         menuItemService = mock(MenuService.class);
         orderService = new OrderService(orderRepository, userRepository, menuItemService);
-        var itemMod1 = new OrderItemModifier(UUID.randomUUID(), "extra Bacon", BigDecimal.valueOf(3), null, null, null, null);
-        var itemMod2 = new OrderItemModifier(UUID.randomUUID(), "extra Cheese", BigDecimal.valueOf(2), null, null, null, null);
 
-        CartItemRequest item1 = new CartItemRequest(
-                "menu-item-1", 2, "No onions", List.of(itemMod1), 0
-        );
-        CartItemRequest item2 = new CartItemRequest(
-                "menu-item-2", 1, "No tomatoes", List.of(itemMod2), 5
-        );
-        cartItemsRequest = List.of(item1, item2);
+        // Define Modifiers
+        var itemMod1 = new OrderItemModifier(UUID.randomUUID(), "extra Bacon", BigDecimal.valueOf(3), null, null, null,
+                null);
+        var itemMod2 = new OrderItemModifier(UUID.randomUUID(), "extra Cheese", BigDecimal.valueOf(2), null, null, null,
+                null);
 
-        cartItem1 = new OrderItem();
-        cartItem1.setMenuItemId("menu-item-1");
-        cartItem1.setQuantity(2);
-        cartItem1.setGrossTotal(BigDecimal.valueOf(10));
+        // 1. Create Requests using helper
+        cartItemsRequest = List.of(
+                createCartReq("menu-item-1", 2, List.of(itemMod1), 0),
+                createCartReq("menu-item-2", 1, List.of(itemMod2), 5));
 
-        cartItem2 = new OrderItem();
-        cartItem2.setMenuItemId("menu-item-2");
-        cartItem2.setQuantity(1);
-        cartItem2.setGrossTotal(BigDecimal.valueOf(15));
+        // 2. Create OrderItem Snapshots using helper
+        cartItem1 = createOrderItem("menu-item-1", 2, "10");
+        cartItem2 = createOrderItem("menu-item-2", 1, "15");
 
-        MenuItem menuItem1 = new MenuItem();
-        menuItem1.setId("menu-item-1");
-        menuItem1.setNetPrice(BigDecimal.valueOf(10));
-        menuItem1.setTaxRate(BigDecimal.valueOf(13));
+        // 3. Create MenuItems using helper
+        MenuItem menuItem1 = createMenuItem("menu-item-1", "10", "13");
+        MenuItem menuItem2 = createMenuItem("menu-item-2", "15", "23");
 
-        MenuItem menuItem2 = new MenuItem();
-        menuItem2.setId("menu-item-2");
-        menuItem2.setNetPrice(BigDecimal.valueOf(15));
-        menuItem2.setTaxRate(BigDecimal.valueOf(23));
-        var menulist = List.of(menuItem1, menuItem2);
+        MenuItem m1 = createMenuItem("m1", "10.00", "13");
+        MenuItem m2 = createMenuItem("m2", "20.00", "23");
 
         when(menuItemService.findAllItemsById(List.of("menu-item-1", "menu-item-2")))
-                .thenReturn(menulist);
-    //     when(menuItemService.findById("menu-item-1"))
-    //             .thenReturn(Optional.of(menuItem1));
-    //     when(menuItemService.findById("menu-item-2"))
-    //             .thenReturn(Optional.of(menuItem2));
+                .thenReturn(List.of(menuItem1, menuItem2));
+         when(menuItemService.findAllItemsById(List.of("m1", "m2")))
+                .thenReturn(List.of(m1, m2));
+    }
+
+    // --- Private Helper Methods ---
+
+    private MenuItem createMenuItem(String id, String netPrice, String taxRate) {
+        MenuItem m = new MenuItem();
+        m.setId(id);
+        m.setNetPrice(new BigDecimal(netPrice));
+        m.setTaxRate(new BigDecimal(taxRate));
+        return m;
+    }
+
+    private CartItemRequest createCartReq(String id, int qty, List<OrderItemModifier> mods, int discount) {
+        return new CartItemRequest(id, qty, "Note", mods, discount);
+    }
+
+    private OrderItem createOrderItem(String id, int qty, String gross) {
+        OrderItem item = new OrderItem();
+        item.setMenuItemId(id);
+        item.setQuantity(qty);
+        item.setGrossTotal(new BigDecimal(gross).setScale(2, RoundingMode.HALF_UP));
+        return item;
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideOrderScenarios")
+    void testOrderCalculations(
+            List<CartItemRequest> cartItems,
+            BigDecimal orderDiscount,
+            String expectedNet,
+            String expectedGross,
+            Map<String, String> expectedTaxes) {
+        // GIVEN
+        // Setup the Menu Library (Common for all cases)
+        MenuItem mi1 = createMenuItem("m1", "10.00", "13");
+        MenuItem mi2 = createMenuItem("m2", "20.00", "23");
+        MenuItem mi3 = createMenuItem("m3", "5.00", "0");
+        MenuItem mi4 = createMenuItem("m4", "100.00", "10");
+
+        when(menuItemService.findAllItemsById(any())).thenReturn(List.of(mi1, mi2, mi3, mi4));
+        when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
+
+        CreateOrderRequest request = new CreateOrderRequest();
+        request.setCartItems(cartItems);
+        request.setDiscountPercent(orderDiscount);
+
+        // WHEN
+        OrderResponse response = orderService.createGuestOrder(request);
+
+        // THEN
+        assertEquals(expectedNet, response.getNetTotal().toString(), "Net Total Mismatch");
+        assertEquals(expectedGross, response.getGrossTotal().toString(), "Gross Total Mismatch");
+
+        Map<BigDecimal, BigDecimal> actualTaxes = response.getTaxTotals().stream()
+                .collect(Collectors.toMap(TaxEntry::getTaxRate, TaxEntry::getAmount));
+
+        expectedTaxes.forEach((rate, amount) -> {
+            BigDecimal rateBD = new BigDecimal(rate);
+            assertTrue(actualTaxes.containsKey(rateBD), "Missing Tax Rate: " + rate);
+            assertEquals(amount, actualTaxes.get(rateBD).toString(), "Tax Amount Mismatch for rate " + rate);
+        });
+    }
+
+    // --- Parameter Source for snapshot,tax calculations ---
+    private static Stream<Arguments> provideOrderScenarios() {
+        // Modifier Definitions
+        var extraBacon = new OrderItemModifier(UUID.randomUUID(), "Extra Bacon", new BigDecimal("3.00"), null, null,
+                null, null);
+        var cheapBacon = new OrderItemModifier(UUID.randomUUID(), "Cheap Bacon", new BigDecimal("2.00"), null, null,
+                null, null);
+
+        return Stream.of(
+                // CASE #0: Simple No Discount
+                // Args: CartItems, OrderDiscount, ExpNet, ExpGross, ExpTaxes Map
+                Arguments.of(
+                        List.of(new CartItemRequest("m1", 1, "", List.of(), 0)),
+                        BigDecimal.ZERO, "10.00", "11.30", Map.of("13", "1.30")),
+
+                // CASE #1: Mixed VAT + 10% Discount
+                Arguments.of(
+                        List.of(
+                                new CartItemRequest("m1", 1, "", List.of(), 0),
+                                new CartItemRequest("m2", 1, "", List.of(), 0)),
+                        new BigDecimal("10"), "27.00", "32.31", Map.of("13", "1.17", "23", "4.14")),
+
+                // CASE #2: Modifiers (No Discount) - TDD Target
+                Arguments.of(
+                        List.of(new CartItemRequest("m1", 1, "", List.of(extraBacon), 0)),
+                        BigDecimal.ZERO, "13.00", "14.69", Map.of("13", "1.69")),
+
+                // CASE #4: Mixed Taxable and Exempt + 20% Discount
+                Arguments.of(
+                        List.of(
+                                new CartItemRequest("m2", 1, "", List.of(), 0),
+                                new CartItemRequest("m3", 1, "", List.of(), 0)),
+                        new BigDecimal("20"), "20.00", "23.68", Map.of("23", "3.68", "0", "0.00")),
+
+                // CASE #5: Modifiers + 50% Discount - Ultimate Test
+                Arguments.of(
+                        List.of(new CartItemRequest("m1", 1, "", List.of(cheapBacon), 0)),
+                        new BigDecimal("50"), "6.00", "6.78", Map.of("13", "0.78")));
     }
 
     @Test
@@ -116,8 +208,7 @@ class OrderServiceTest {
 
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
-        Optional<OrderResponse> result =
-                orderService.getGuestOrder(order.getId(), cartId, Optional.empty());
+        Optional<OrderResponse> result = orderService.getGuestOrder(order.getId(), cartId, Optional.empty());
 
         assertTrue(result.isPresent());
         assertEquals(order.getId(), result.get().getId());
@@ -132,7 +223,8 @@ class OrderServiceTest {
         order.setOrderItems(List.of(cartItem1));
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
-        Optional<OrderResponse> result = orderService.getGuestOrder(order.getId(), cartId, Optional.of("guest@example.com"));
+        Optional<OrderResponse> result = orderService.getGuestOrder(order.getId(), cartId,
+                Optional.of("guest@example.com"));
 
         assertTrue(result.isPresent());
         assertEquals(order.getId(), result.get().getId());
@@ -149,7 +241,7 @@ class OrderServiceTest {
         assertFalse(result.isPresent());
     }
 
-  @Test
+    @Test
     void testCreateOrder_Success() {
         UUID waiterId = UUID.randomUUID();
         CreateOrderRequest request = new CreateOrderRequest();
@@ -208,71 +300,65 @@ class OrderServiceTest {
 
     @Test
     void testOrderTotals_MixedVatAndOrderDiscount() {
-        // GIVEN: Item 1 (Net 10.00, Tax 13%) | Item 2 (Net 20.00, Tax 23%)
-        MenuItem m1 = new MenuItem(); m1.setId("m1"); m1.setNetPrice(new BigDecimal("10.00")); m1.setTaxRate(new BigDecimal("13"));
-        MenuItem m2 = new MenuItem(); m2.setId("m2"); m2.setNetPrice(new BigDecimal("20.00")); m2.setTaxRate(new BigDecimal("23"));
-
-        when(menuItemService.findAllItemsById(any())).thenReturn(List.of(m1, m2));
         when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
 
+         // GIVEN: Item 1 (Net 10.00, Tax 13%) | Item 2 (Net 20.00, Tax 23%)
         CreateOrderRequest request = new CreateOrderRequest();
         request.setCartItems(List.of(
-            new CartItemRequest("m1", 1, "", List.of(), 0),
-            new CartItemRequest("m2", 1, "", List.of(), 0)
+                createCartReq("m1", 1, List.of(), 0), // Use helper
+                createCartReq("m2", 1, List.of(), 0) // Use helper
         ));
-        request.setDiscount(new BigDecimal("10")); // 10% Order Discount
+        request.setDiscountPercent(new BigDecimal("10")); // 10% Order Discount
 
         // WHEN
         OrderResponse response = orderService.createGuestOrder(request);
-        
+
         // THEN: Math Verification (Net First Logic)
         // Total Net before discount = 30.00
         // Order Discount (10%) = 3.00
         // Item 1 New Net: 10.00 - (1/3 of 3.00) = 9.00 -> Tax: 9.00 * 0.13 = 1.17
         // Item 2 New Net: 20.00 - (2/3 of 3.00) = 18.00 -> Tax: 18.00 * 0.23 = 4.14
-        
+
         assertEquals("27.00", response.getNetTotal().toString());
-        
+
         // Check individual tax entries
         Map<BigDecimal, BigDecimal> taxes = response.getTaxTotals().stream()
                 .collect(Collectors.toMap(TaxEntry::getTaxRate, TaxEntry::getAmount));
-                
+
         assertEquals("1.17", taxes.get(new BigDecimal("13")).toString());
         assertEquals("4.14", taxes.get(new BigDecimal("23")).toString());
-        
+
         // Total Gross: 27.00 + 1.17 + 4.14 = 32.31
         assertEquals("32.31", response.getGrossTotal().toString());
     }
 
     @Test
-    void testUpdateOrder_Success() {
+    void testUpdateOrder_RecalculatesTotals() {
+        // GIVEN: An existing order with 1 item (Net 10.00, Tax 10%)
         UUID waiterId = UUID.randomUUID();
-        CreateOrderRequest request = new CreateOrderRequest();
-        request.setOrderPointId("table-4");
-        request.setCartItems(cartItemsRequest);
+        MenuItem m1 = createMenuItem("m1", "10.00", "10");
 
         Order existingOrder = new Order();
         existingOrder.setWaiterId(waiterId);
-        existingOrder.setOrderItems(new ArrayList<>()); // empty initially
-
-        // Mock MenuItemRepository for price snapshot
-        for (CartItemRequest item : cartItemsRequest) {
-            MenuItem menuItem = new MenuItem();
-            menuItem.setId(item.getMenuItemId());
-            menuItem.setGrossPrice(BigDecimal.valueOf(10)); // just a fixed test price
-        }
+        // Initial totals set to 0 for the test
+        existingOrder.setGrossTotal(BigDecimal.ZERO);
 
         when(orderRepository.findById(existingOrder.getId())).thenReturn(Optional.of(existingOrder));
-        when(orderRepository.save(any(Order.class))).thenReturn(existingOrder);
+        when(menuItemService.findAllItemsById(any())).thenReturn(List.of(m1));
+        when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
 
-        OrderResponse response = orderService.updateOrder(existingOrder.getId(), waiterId, request);
+        // WHEN: Update request changes quantity from 1 to 2
+        CreateOrderRequest updateRequest = new CreateOrderRequest();
+        updateRequest.setOrderPointId("table-1");
+        updateRequest.setCartItems(List.of(new CartItemRequest("m1", 2, "", List.of(), 0)));
+        updateRequest.setDiscountPercent(BigDecimal.ZERO);
 
-        verify(orderRepository).save(existingOrder);
-        assertEquals(existingOrder.getId(), response.getId());
-        assertEquals(waiterId, response.getWaiterId());
+        OrderResponse response = orderService.updateOrder(existingOrder.getId(), waiterId, updateRequest);
 
-        assertEquals("table-4", response.getOrderPointId());
-        assertEquals(cartItemsRequest.size(), response.getOrderItems().size());
+        // THEN: Totals should reflect 2 items (20.00 Net + 2.00 Tax)
+        assertEquals("20.00", response.getNetTotal().toString());
+        assertEquals("22.00", response.getGrossTotal().toString());
+        verify(orderRepository).save(any(Order.class));
     }
 
     @Test
