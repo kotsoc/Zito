@@ -262,7 +262,7 @@ public class OrderService {
             }
 
             //Rounding to 2 decimals
-            orderDiscount = totalOrderDiscount.setScale(2, RoundingMode.HALF_UP);
+            orderDiscount = totalOrderDiscount.setScale(6, RoundingMode.HALF_UP);
         }
 
         for (OrderItem item : items) {

@@ -12,6 +12,8 @@ import org.mockito.ArgumentCaptor;
 
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.stream.Collectors;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -202,6 +204,44 @@ class OrderServiceTest {
 
         assertEquals(1, responses.size());
         assertEquals(order.getOrderPointId(), responses.get(0).getOrderPointId());
+    }
+
+    @Test
+    void testOrderTotals_MixedVatAndOrderDiscount() {
+        // GIVEN: Item 1 (Net 10.00, Tax 13%) | Item 2 (Net 20.00, Tax 23%)
+        MenuItem m1 = new MenuItem(); m1.setId("m1"); m1.setNetPrice(new BigDecimal("10.00")); m1.setTaxRate(new BigDecimal("13"));
+        MenuItem m2 = new MenuItem(); m2.setId("m2"); m2.setNetPrice(new BigDecimal("20.00")); m2.setTaxRate(new BigDecimal("23"));
+
+        when(menuItemService.findAllItemsById(any())).thenReturn(List.of(m1, m2));
+        when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
+
+        CreateOrderRequest request = new CreateOrderRequest();
+        request.setCartItems(List.of(
+            new CartItemRequest("m1", 1, "", List.of(), 0),
+            new CartItemRequest("m2", 1, "", List.of(), 0)
+        ));
+        request.setDiscount(new BigDecimal("10")); // 10% Order Discount
+
+        // WHEN
+        OrderResponse response = orderService.createGuestOrder(request);
+        
+        // THEN: Math Verification (Net First Logic)
+        // Total Net before discount = 30.00
+        // Order Discount (10%) = 3.00
+        // Item 1 New Net: 10.00 - (1/3 of 3.00) = 9.00 -> Tax: 9.00 * 0.13 = 1.17
+        // Item 2 New Net: 20.00 - (2/3 of 3.00) = 18.00 -> Tax: 18.00 * 0.23 = 4.14
+        
+        assertEquals("27.00", response.getNetTotal().toString());
+        
+        // Check individual tax entries
+        Map<BigDecimal, BigDecimal> taxes = response.getTaxTotals().stream()
+                .collect(Collectors.toMap(TaxEntry::getTaxRate, TaxEntry::getAmount));
+                
+        assertEquals("1.17", taxes.get(new BigDecimal("13")).toString());
+        assertEquals("4.14", taxes.get(new BigDecimal("23")).toString());
+        
+        // Total Gross: 27.00 + 1.17 + 4.14 = 32.31
+        assertEquals("32.31", response.getGrossTotal().toString());
     }
 
     @Test
