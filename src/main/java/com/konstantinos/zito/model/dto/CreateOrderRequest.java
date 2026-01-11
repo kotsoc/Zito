@@ -32,5 +32,5 @@ public class CreateOrderRequest {
 
     String currency;
     String customerNote;
-    BigDecimal discount;
+    BigDecimal discountPercent;
 }

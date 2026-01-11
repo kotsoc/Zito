@@ -24,6 +24,7 @@ import com.konstantinos.zito.model.Order;
 import com.konstantinos.zito.model.OrderStatus;
 import com.konstantinos.zito.model.TaxEntry;
 import com.konstantinos.zito.model.OrderItem;
+import com.konstantinos.zito.model.OrderItemModifier;
 import com.konstantinos.zito.model.dto.OrderResponse;
 import com.konstantinos.zito.model.dto.CreateOrderRequest;
 import com.konstantinos.zito.model.dto.CartItemRequest;
@@ -54,18 +55,23 @@ public class OrderService {
         order.setCartId(request.getCartId());
         order.setCreated_At(new Date());
         order.setLatest_update(new Date());
-        order.setOrderItems(calculateCartSnapshot(request.getCartItems()));
+        order.setOrderDiscount(request.getDiscountPercent());
         order.setPaid(false);
         order.setStatus(OrderStatus.NEW);
-        var orderTotals = calculateOrderTotals(order.getOrderItems(), request.getDiscount());
-        order.setNetTotal(orderTotals.getNetTotal());
-        order.setTaxTotals(orderTotals.getTaxTotalsByRate());
-        order.setGrossTotal(orderTotals.getGrossTotal());
 
-        // email is optional
+         // email is optional
         if (request.getGuestEmail() != null) {
             order.setGuestEmail(request.getGuestEmail());
         }
+
+        //Add items and create snapshots
+        order.setOrderItems(calculateCartSnapshot(request.getCartItems()));
+        
+        //calculate order totals
+        var orderTotals = calculateOrderTotals(order.getOrderItems(), request.getDiscountPercent());
+        order.setNetTotal(orderTotals.getNetTotal());
+        order.setTaxTotals(orderTotals.getTaxTotalsByRate());
+        order.setGrossTotal(orderTotals.getGrossTotal());
 
         return mapToResponse(orderRepository.save(order));
     }
@@ -89,16 +95,20 @@ public class OrderService {
         order.setOrderPointId(request.getOrderPointId());
         order.setCreated_At(new Date());
         order.setLatest_update(new Date());
+        order.setOrderDiscount(request.getDiscountPercent());
+        order.setPaid(false);
+        order.setStatus(OrderStatus.NEW);
+
+       
+        //Add items and create snapshots
         order.setOrderItems(calculateCartSnapshot(request.getCartItems()));
-
-        order.setPaid(false); // default
-        order.setStatus(OrderStatus.NEW); // default or NEW
-        var orderTotals = calculateOrderTotals(order.getOrderItems(), request.getDiscount());
-        order.setGrossTotal(orderTotals.getGrossTotal());
-        order.setTaxTotals(orderTotals.getTaxTotalsByRate());
+        
+        //calculate order totals
+        var orderTotals = calculateOrderTotals(order.getOrderItems(), request.getDiscountPercent());
         order.setNetTotal(orderTotals.getNetTotal());
-        order.setDiscountTotal(orderTotals.getDiscountTotal());
-
+        order.setTaxTotals(orderTotals.getTaxTotalsByRate());
+        order.setGrossTotal(orderTotals.getGrossTotal());
+        
         return mapToResponse(orderRepository.save(order));
     }
 
@@ -120,11 +130,21 @@ public class OrderService {
         if (!existingOrder.getWaiterId().equals(waiterId)) {
             throw new RuntimeException("Waiter mismatch");
         }
-        //TODO:: RECACULATE THE TOTALS
+
+        if(existingOrder.getStatus().compareTo(OrderStatus.CONFIRMED) > 0 ){
+            throw new RuntimeException("Cannot change order, it is already being prepared!");
+
+        }
         //TODO:: ADD TO CHANGED ORDERS REPOSITORY
         existingOrder.setOrderItems(calculateCartSnapshot(request.getCartItems()));
         existingOrder.setLatest_update(new Date());
         existingOrder.setOrderPointId(request.getOrderPointId());
+
+        var orderTotals = calculateOrderTotals(existingOrder.getOrderItems(), request.getDiscountPercent());
+        existingOrder.setGrossTotal(orderTotals.getGrossTotal());
+        existingOrder.setTaxTotals(orderTotals.getTaxTotalsByRate());
+        existingOrder.setNetTotal(orderTotals.getNetTotal());
+        existingOrder.setDiscountTotal(orderTotals.getDiscountTotal());
 
         return mapToResponse(orderRepository.save(existingOrder));
     }
@@ -197,6 +217,13 @@ public class OrderService {
 
             // 2. Line net total
             BigDecimal lineNetTotal = netPrice.multiply(BigDecimal.valueOf(item.getQuantity()));
+
+            //2.5 Add net of modifiers
+            lineNetTotal = lineNetTotal.add(
+                item.getItemModifiers().stream()
+                .map(OrderItemModifier::getNetPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+            );
 
             // 3. Apply item discount to line and save
             BigDecimal itemDiscountAmount = lineNetTotal.multiply(item.getItemDiscount())
