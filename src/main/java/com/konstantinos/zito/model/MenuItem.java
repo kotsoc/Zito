@@ -1,6 +1,7 @@
 package com.konstantinos.zito.model;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
@@ -14,16 +15,19 @@ public class MenuItem {
 
     @Indexed
     private String name;
-
     private String description;
+    private String categoryName;
+    private int categoryId;
+
+    List<OrderItemModifier> itemModifiers; // Valid modifiers for this item
+
     private BigDecimal netPrice;
     private BigDecimal grossPrice; // OPTIONAL
-    private int categoryId;
-    private String categoryName;
-    private Boolean available;
-    private String imageUrl;
     private BigDecimal taxRate;
 
+    private Boolean available;
+    private String imageUrl;
+  
     public MenuItem() {
     }
 
@@ -113,5 +117,13 @@ public class MenuItem {
     
     public void setTaxRate(BigDecimal taxRate) {
         this.taxRate = taxRate;
+    }
+
+    public void setItemModifiers(List<OrderItemModifier> itemModifiers) {
+        this.itemModifiers = itemModifiers;
+    }
+
+    public List<OrderItemModifier> getItemModifiers() {
+        return itemModifiers;
     }
 }

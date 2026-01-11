@@ -202,13 +202,23 @@ public class OrderService {
                 throw new RuntimeException("Found fewer Menu Items than request, wrong MenuItem id passed");
             }
             var menuItem = menuItemMap.get(ciReq.getMenuItemId());
+            Map<String, BigDecimal> identifierPriceMap = menuItem.getItemModifiers() != null ? 
+                menuItem.getItemModifiers().stream().collect(
+                    Collectors.toMap(
+                        OrderItemModifier::getId,
+                        item -> item.getNetPrice() != null ? item.getNetPrice() : BigDecimal.ZERO)) : Map.of();
             // Set base information
             OrderItem item = new OrderItem();
             item.setMenuItemId(menuItem.getId());
             item.setName(menuItem.getName());
+
+            //From cartRequest
             item.setQuantity(ciReq.getQuantity());
             item.setNote(ciReq.getNote());
-            item.setItemModifiers(ciReq.getModifiers());// TODO :FIX modifiers pricing
+            item.setItemModifiers(ciReq.getModifiers().stream()
+                .map(m -> {
+                        m.setNetPrice(identifierPriceMap.get(m.getId())); return m;
+                }).toList());// TODO :FIX modifiers pricing
             item.setItemDiscount(
                     ciReq.getItemDiscount() != 0 ? BigDecimal.valueOf(ciReq.getItemDiscount()) : BigDecimal.ZERO);
 
@@ -222,6 +232,7 @@ public class OrderService {
             lineNetTotal = lineNetTotal.add(
                 item.getItemModifiers().stream()
                 .map(OrderItemModifier::getNetPrice)
+                .map(price -> price == null ? BigDecimal.ZERO : price)                
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
             );
 

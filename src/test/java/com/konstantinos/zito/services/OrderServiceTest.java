@@ -34,6 +34,12 @@ class OrderServiceTest {
     private List<CartItemRequest> cartItemsRequest;
     private OrderItem cartItem1;
     private OrderItem cartItem2;
+    private OrderItemModifier itemMod1;
+    private OrderItemModifier itemMod2;
+    private OrderItemModifier itemMod3;
+    private OrderItemModifier itemMod4;
+    private static String mod3Id = "mod-3";
+    private static String mod4Id = "mod-4";
 
     @BeforeEach
     void setUp() {
@@ -42,11 +48,14 @@ class OrderServiceTest {
         menuItemService = mock(MenuService.class);
         orderService = new OrderService(orderRepository, userRepository, menuItemService);
 
-        // Define Modifiers
-        var itemMod1 = new OrderItemModifier(UUID.randomUUID(), "extra Bacon", BigDecimal.valueOf(3), null, null, null,
-                null);
-        var itemMod2 = new OrderItemModifier(UUID.randomUUID(), "extra Cheese", BigDecimal.valueOf(2), null, null, null,
-                null);
+        // Define Modifiersnull
+        var mod1Id = "mod-1";
+        var mod2Id = "mod-2";
+        itemMod1 = new OrderItemModifier(mod1Id, "extra Cheese", new BigDecimal("3.00"), null, "foodMod");
+        itemMod2 = new OrderItemModifier(mod2Id, "extra Cheese", new BigDecimal("2.00"), null, "starterMod");
+        itemMod3 = new OrderItemModifier(mod3Id, "Extra Bacon", new BigDecimal("3.00"), null, "foodMod");
+        itemMod4 = new OrderItemModifier(mod4Id, "Cheap Bacon", new BigDecimal("2.00"), null, "foodMod");
+
 
         // 1. Create Requests using helper
         cartItemsRequest = List.of(
@@ -72,11 +81,21 @@ class OrderServiceTest {
 
     // --- Private Helper Methods ---
 
+    private MenuItem createMenuItem(String id, String netPrice, String taxRate, List<OrderItemModifier> modList) {
+        MenuItem m = new MenuItem();
+        m.setId(id);
+        m.setNetPrice(new BigDecimal(netPrice));
+        m.setTaxRate(new BigDecimal(taxRate));
+        m.setItemModifiers(modList);
+        return m;
+    }
+    
     private MenuItem createMenuItem(String id, String netPrice, String taxRate) {
         MenuItem m = new MenuItem();
         m.setId(id);
         m.setNetPrice(new BigDecimal(netPrice));
         m.setTaxRate(new BigDecimal(taxRate));
+        m.setItemModifiers(List.of());
         return m;
     }
 
@@ -102,7 +121,7 @@ class OrderServiceTest {
             Map<String, String> expectedTaxes) {
         // GIVEN
         // Setup the Menu Library (Common for all cases)
-        MenuItem mi1 = createMenuItem("mi1", "10.00", "13");
+        MenuItem mi1 = createMenuItem("mi1", "10.00", "13", List.of(itemMod3, itemMod4));
         MenuItem mi2 = createMenuItem("mi2", "20.00", "23");
         MenuItem mi3 = createMenuItem("mi3", "5.00", "0");
         MenuItem mi4 = createMenuItem("mi4", "100.00", "10");
@@ -136,26 +155,24 @@ class OrderServiceTest {
     // --- Parameter Source for snapshot,tax calculations ---
     private static Stream<Arguments> provideOrderScenarios() {
         // Modifier Definitions
-        var extraBacon = new OrderItemModifier(UUID.randomUUID(), "Extra Bacon", new BigDecimal("3.00"), null, null,
-                null, null);
-        var cheapBacon = new OrderItemModifier(UUID.randomUUID(), "Cheap Bacon", new BigDecimal("2.00"), null, null,
-                null, null);
+        var extraBacon = new OrderItemModifier(mod3Id, "Extra Bacon", new BigDecimal("3.00"), null, "foodMod");
+        var cheapBacon = new OrderItemModifier(mod4Id, "Cheap Bacon", new BigDecimal("2.00"), null, "foodMod");
 
         return Stream.of(
-            // CASE #0: Simple No Discount
+            // CASE #1: Simple No Discount
             // Args: CartItems, OrderDiscount, ExpNet, ExpGross, ExpTaxes Map
             Arguments.of(
                     List.of(new CartItemRequest("mi1", 1, "", List.of(), 0)),
                     BigDecimal.ZERO, "10.00", "11.30", Map.of("13", "1.30")),
 
-            // CASE #1: Mixed VAT + 10% Discount
+            // CASE #2: Mixed VAT + 10% Discount
             Arguments.of(
                     List.of(
                             new CartItemRequest("mi1", 1, "", List.of(), 0),
                             new CartItemRequest("mi2", 1, "", List.of(), 0)),
                     new BigDecimal("10"), "27.00", "32.31", Map.of("13", "1.17", "23", "4.14")),
 
-            // CASE #2: Modifiers (No Discount) - TDD Target
+            // CASE #3: Modifiers (No Discount) - TDD Target
             Arguments.of(
                     List.of(new CartItemRequest("mi1", 1, "", List.of(extraBacon), 0)),
                     BigDecimal.ZERO, "13.00", "14.69", Map.of("13", "1.69")),

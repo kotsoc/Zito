@@ -11,14 +11,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderItemModifier {
-    private UUID optionId;
+    private String id;
     private String name;
     private BigDecimal netPrice;
-    private BigDecimal taxRate;    
+    private BigDecimal grossPrice; // Only used for FE 
     
-    private BigDecimal unitNet;    //Snapshot
-    private BigDecimal unitGross; // Snapshot
-    private BigDecimal unitTax;
-
-
+    private String modifierGroupId;
 }
