@@ -559,4 +559,47 @@ class OrderServiceTest {
         OrderResponse sentResponse = responseCaptor.getValue();
         assertEquals(OrderStatus.READY, sentResponse.getStatus());
     }
+
+    @Test
+    void testUpdateOrder_ThrowsException_WhenStatusBeyondConfirmed() {
+        // GIVEN
+        UUID waiterId = UUID.randomUUID();
+        Order order = new Order();
+        order.setWaiterId(waiterId);
+        order.setStatus(OrderStatus.PREPARING); // Beyond CONFIRMED
+
+        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+
+        CreateOrderRequest request = new CreateOrderRequest();
+        assertThrows(RuntimeException.class, () -> orderService.updateOrder(order.getId(), waiterId, request));
+    }
+
+    @Test
+    void testUpdateOrder_ThrowsException_WhenWaiterMismatch() {
+        // GIVEN
+        UUID waiterId = UUID.randomUUID();
+        UUID otherWaiterId = UUID.randomUUID();
+        Order order = new Order();
+        order.setWaiterId(waiterId);
+
+        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+
+        CreateOrderRequest request = new CreateOrderRequest();
+        assertThrows(RuntimeException.class, () -> orderService.updateOrder(order.getId(), otherWaiterId, request));
+    }
+
+    @Test
+    void testCalculateCartSnapshot_ThrowsException_WhenMenuItemNotFound() {
+        // GIVEN
+        CartItemRequest req = new CartItemRequest("unknown", 1, "Note", List.of(), 0);
+        when(menuItemService.findAllItemsById(any())).thenReturn(List.of()); // Returns empty list
+
+        CreateOrderRequest request = new CreateOrderRequest();
+        request.setCartItems(List.of(req));
+        request.setOrderPointId("table-1");
+        request.setCartId(UUID.randomUUID());
+
+        // WHEN/THEN
+        assertThrows(RuntimeException.class, () -> orderService.createGuestOrder(request));
+    }
 }

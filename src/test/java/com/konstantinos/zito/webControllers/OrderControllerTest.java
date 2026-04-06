@@ -1,5 +1,6 @@
 package com.konstantinos.zito.webControllers;
 
+import com.konstantinos.zito.model.OrderStatus;
 import com.konstantinos.zito.model.dto.CartItemRequest;
 import com.konstantinos.zito.model.dto.CreateOrderRequest;
 import com.konstantinos.zito.model.dto.OrderResponse;
@@ -91,6 +92,31 @@ class OrderControllerTest {
         when(orderService.createGuestOrder(request)).thenThrow(new RuntimeException("fail"));
 
         ResponseEntity<OrderResponse> response = orderController.createOrder(request);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertNull(response.getBody());
+    }
+
+    @Test
+    void updateOrderStatus_success_returnsOk() {
+        UUID orderId = UUID.randomUUID();
+        OrderStatus status = OrderStatus.CONFIRMED;
+        OrderResponse updatedOrder = new OrderResponse();
+        when(orderService.updateOrderStatus(orderId, status)).thenReturn(updatedOrder);
+
+        ResponseEntity<OrderResponse> response = orderController.updateOrderStatus(orderId, status);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(updatedOrder, response.getBody());
+    }
+
+    @Test
+    void updateOrderStatus_exception_returnsBadRequest() {
+        UUID orderId = UUID.randomUUID();
+        OrderStatus status = OrderStatus.CONFIRMED;
+        when(orderService.updateOrderStatus(orderId, status)).thenThrow(new RuntimeException("fail"));
+
+        ResponseEntity<OrderResponse> response = orderController.updateOrderStatus(orderId, status);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertNull(response.getBody());
