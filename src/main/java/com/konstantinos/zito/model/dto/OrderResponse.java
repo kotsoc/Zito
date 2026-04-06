@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class OrderResponse {
     private UUID id;
+    private UUID cartId;
     private String orderPointId; // e.g. table number or reservation ID
     private UUID waiterId; //user or waiter who created the order optional
     private Date createdAt;

@@ -168,6 +168,7 @@ public class OrderService {
     private OrderResponse mapToResponse(Order order) {
         OrderResponse response = new OrderResponse();
         response.setId(order.getId());
+        response.setCartId(order.getCartId());
         response.setWaiterId(order.getWaiterId());
         response.setOrderPointId(order.getOrderPointId());
         response.setCreatedAt(order.getCreated_At());
@@ -223,11 +224,15 @@ public class OrderService {
             // From cartRequest
             item.setQuantity(ciReq.getQuantity());
             item.setNote(ciReq.getNote());
-            item.setItemModifiers(ciReq.getModifiers().stream()
-                    .map(m -> {
-                        m.setNetPrice(identifierPriceMap.get(m.getId()));
-                        return m;
-                    }).toList());// TODO :FIX modifiers pricing
+            item.setItemModifiers(
+            Optional.ofNullable(ciReq.getModifiers()) // Wrap the potentially null list
+                .orElse(List.of())                    // Default to empty list if null
+                .stream()
+                .map(m -> {
+                    m.setNetPrice(identifierPriceMap.getOrDefault(m.getId(), BigDecimal.ZERO));
+                    return m;
+                }).toList()
+            );
             item.setItemDiscount(
                     ciReq.getItemDiscount() != 0 ? BigDecimal.valueOf(ciReq.getItemDiscount()) : BigDecimal.ZERO);
 
@@ -239,10 +244,10 @@ public class OrderService {
 
             // 2.5 Add net of modifiers
             lineNetTotal = lineNetTotal.add(
-                    item.getItemModifiers().stream()
+                    item.getItemModifiers() != null ? item.getItemModifiers().stream()
                             .map(OrderItemModifier::getNetPrice)
                             .map(price -> price == null ? BigDecimal.ZERO : price)
-                            .reduce(BigDecimal.ZERO, BigDecimal::add));
+                            .reduce(BigDecimal.ZERO, BigDecimal::add): BigDecimal.ZERO);
 
             // 3. Apply item discount to line and save
             BigDecimal itemDiscountAmount = lineNetTotal.multiply(item.getItemDiscount())

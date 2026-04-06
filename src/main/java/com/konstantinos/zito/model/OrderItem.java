@@ -17,8 +17,7 @@ public class OrderItem {
     private int quantity;              //total = price * quantity
 
     private String note;              // ✅ free-text user note
-    private List<OrderItemModifier> itemModifiers;   // Optional future-proofing
-
+    private List<OrderItemModifier> itemModifiers = new java.util.ArrayList<>();
 
     //Pricing snapshot (Stored for Audit/UI) - Financial
     private BigDecimal unitPriceNet;       // snapshot of price at time of order

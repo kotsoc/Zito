@@ -26,7 +26,7 @@ public class CartItemRequest {
 
     private String note;
 
-    private List<OrderItemModifier> modifiers;
+    private List<OrderItemModifier> modifiers = new java.util.ArrayList<>();
     @Nonnegative
     private int itemDiscount;
 }

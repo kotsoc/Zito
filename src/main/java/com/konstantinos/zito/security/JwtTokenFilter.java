@@ -35,51 +35,41 @@ public class JwtTokenFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getServletPath();
-        // Skip JWT validation for these endpoints
-        return path.equals("/user/signin")
-            || path.equals("/user/signup")
-            || path.equals("/user/refresh")
-            || path.equals("/api/v1/menu-items")
-            || path.equals("/api/v1/categories")
-            || path.startsWith("/v3/")
-            || path.startsWith("/actuator");
-    }
-
-    @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
+        
         try {
             final String header = request.getHeader(HttpHeaders.AUTHORIZATION);
-            if (header == null || (header.isEmpty() || !header.toLowerCase().startsWith("bearer "))) {
-                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Invalid or Lacking Authorization");
-                return;
-            }
-
-            final String jwtToken = header.split(" ")[1].trim();
-            if (!jwtTokenUtil.validateJwtToken(jwtToken) || tokenInvalidatorService.isInvalid(jwtToken)) {
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or expired JWT token");
-                return;
-            }
-
-            UUID userId = jwtTokenUtil.getUserId(jwtToken); // parsed from subject
-            String email = jwtTokenUtil.getEmailFromJWTToken(jwtToken).get();
-            List<GrantedAuthority> authorities = jwtTokenUtil.getRolesFromJwtToken(jwtToken).stream()
-                                        .map(SimpleGrantedAuthority::new)
-                                        .collect(Collectors.toList());
-                                        
-            RestaurantUserDetails principal = new RestaurantUserDetails(userId, email, authorities);
-            var authentication = new UsernamePasswordAuthenticationToken(principal, jwtToken, authorities);
             
-            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            // 1. Only attempt authentication if the header exists and is a Bearer token
+            if (header != null && header.toLowerCase().startsWith("bearer ")) {
+                final String jwtToken = header.substring(7).trim();
+                System.out.println("Extracted JWT Token: " + jwtToken); // Debug log to verify token extraction
+                // 2. Only authenticate if the token is valid and not blacklisted
+                if (jwtTokenUtil.validateJwtToken(jwtToken) && !tokenInvalidatorService.isInvalid(jwtToken)) {
+                    
+                    UUID userId = jwtTokenUtil.getUserId(jwtToken);
+                    String email = jwtTokenUtil.getEmailFromJWTToken(jwtToken).orElse("");
+                    List<GrantedAuthority> authorities = jwtTokenUtil.getRolesFromJwtToken(jwtToken).stream()
+                            .map(SimpleGrantedAuthority::new)
+                            .collect(Collectors.toList());
+                                            
+                    RestaurantUserDetails principal = new RestaurantUserDetails(userId, email, authorities);
+                    var authentication = new UsernamePasswordAuthenticationToken(principal, jwtToken, authorities);
+                    
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    
+                    // 3. Put the user's "Nametag" on the request
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
+            }
         } catch (Exception e) {
+            // Log the error, but DO NOT block the request. 
+            // Let Spring Security handle the rejection later if this was a protected route.
             logger.error("Cannot set user authentication: {}", e);
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication Failed");
-            return;
         }
-        filterChain.doFilter(request, response);
 
+        // If it was public, it goes through. If it was private, Spring blocks it.
+        filterChain.doFilter(request, response);
     }
 }

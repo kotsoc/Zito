@@ -88,8 +88,8 @@ public class SecurityConfiguration {
                     "/v3/api-docs*/**",
                     "/ws/**"
                 ).permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/menu-items", "/api/v1/categories")
-                .permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/menu-items", "/api/v1/categories", "/api/v1/orders/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/orders").permitAll()
                 .anyRequest().authenticated());
 
         // Add your existing DaoAuthenticationProvider
