@@ -85,7 +85,8 @@ public class SecurityConfiguration {
                     "/user/signup",
                     "/user/refresh",
                     "/swagger-ui/**",
-                    "/v3/api-docs*/**"
+                    "/v3/api-docs*/**",
+                    "/ws/**"
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/menu-items", "/api/v1/categories")
                 .permitAll()

@@ -2,7 +2,6 @@ package com.konstantinos.zito.services;
 
 import com.konstantinos.zito.model.*;
 import com.konstantinos.zito.model.dto.*;
-import com.konstantinos.zito.repositories.MenuItemRepository;
 import com.konstantinos.zito.repositories.OrderRepository;
 import com.konstantinos.zito.repositories.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,6 +11,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -28,6 +28,7 @@ class OrderServiceTest {
     private OrderRepository orderRepository;
     private UserRepository userRepository;
     private MenuService menuItemService;
+    private SimpMessagingTemplate messagingTemplate;
     private OrderService orderService;
 
     // Shared test data
@@ -46,7 +47,8 @@ class OrderServiceTest {
         orderRepository = mock(OrderRepository.class);
         userRepository = mock(UserRepository.class);
         menuItemService = mock(MenuService.class);
-        orderService = new OrderService(orderRepository, userRepository, menuItemService);
+        messagingTemplate = mock(SimpMessagingTemplate.class);
+        orderService = new OrderService(orderRepository, userRepository, menuItemService, messagingTemplate);
 
         // Define Modifiersnull
         var mod1Id = "mod-1";
@@ -464,5 +466,97 @@ class OrderServiceTest {
         RuntimeException ex = assertThrows(RuntimeException.class,
                 () -> orderService.deleteOrder(orderId, waiterId));
         assertEquals("Order not found", ex.getMessage());
+    }
+
+    @Test
+    void testCreateOrder_SendsStatusUpdateNotification() {
+        // GIVEN
+        UUID waiterId = UUID.randomUUID();
+        CreateOrderRequest request = new CreateOrderRequest();
+        request.setOrderPointId("table-5");
+        request.setCartItems(cartItemsRequest);
+
+        when(userRepository.findById(waiterId)).thenReturn(Optional.of(new RestaurantUser()));
+        when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
+
+        // WHEN
+        OrderResponse response = orderService.createOrder(waiterId, request);
+
+        // THEN: Verify messaging template was called with correct topics
+        verify(messagingTemplate, times(3)).convertAndSend(anyString(), any(OrderResponse.class));
+        verify(messagingTemplate).convertAndSend("/topic/orders/" + response.getId(), response);
+        verify(messagingTemplate).convertAndSend("/topic/tables/table-5", response);
+        verify(messagingTemplate).convertAndSend("/topic/orders", response);
+    }
+
+    @Test
+    void testUpdateOrderStatus_SendsStatusUpdateNotification() {
+        // GIVEN
+        Order order = new Order();
+        UUID orderId = order.getId();
+        order.setWaiterId(UUID.randomUUID());
+        order.setOrderPointId("table-10");
+        order.setStatus(OrderStatus.NEW);
+        order.setOrderItems(List.of(cartItem1));
+
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
+
+        // WHEN
+        OrderResponse response = orderService.updateOrderStatus(orderId, OrderStatus.CONFIRMED);
+
+        // THEN: Verify status was updated and WebSocket messages were sent to all 3 topics
+        assertEquals(OrderStatus.CONFIRMED, response.getStatus());
+        
+        // Capture all calls to verify correct topics
+        ArgumentCaptor<String> topicCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<OrderResponse> responseCaptor = ArgumentCaptor.forClass(OrderResponse.class);
+        verify(messagingTemplate, times(3)).convertAndSend(topicCaptor.capture(), responseCaptor.capture());
+        
+        List<String> topics = topicCaptor.getAllValues();
+        assertTrue(topics.contains("/topic/orders/" + orderId), 
+            "Should send to order-specific topic with correct ID");
+        assertTrue(topics.contains("/topic/tables/table-10"), 
+            "Should send to table topic");
+        assertTrue(topics.contains("/topic/orders"), 
+            "Should send to general dashboard topic");
+    }
+
+    @Test
+    void testUpdateOrderStatus_VerifyCorrectTopicsForMultipleUpdates() {
+        // GIVEN
+        Order order = new Order();
+        UUID orderId = order.getId();
+        order.setWaiterId(UUID.randomUUID());
+        order.setOrderPointId("table-7");
+        order.setStatus(OrderStatus.NEW);
+        order.setOrderItems(List.of(cartItem1));
+
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
+
+        // WHEN: First status update
+        orderService.updateOrderStatus(orderId, OrderStatus.CONFIRMED);
+
+        // Reset mock state to count new calls for second update
+        reset(messagingTemplate);
+
+        // WHEN: Second status update
+        orderService.updateOrderStatus(orderId, OrderStatus.READY);
+
+        // THEN: Verify second update also sends to all 3 topics
+        ArgumentCaptor<String> topicCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<OrderResponse> responseCaptor = ArgumentCaptor.forClass(OrderResponse.class);
+        
+        verify(messagingTemplate, times(3)).convertAndSend(topicCaptor.capture(), responseCaptor.capture());
+        
+        List<String> topics = topicCaptor.getAllValues();
+        assertTrue(topics.contains("/topic/orders/" + orderId), "Should send to order-specific topic");
+        assertTrue(topics.contains("/topic/tables/table-7"), "Should send to table topic");
+        assertTrue(topics.contains("/topic/orders"), "Should send to general dashboard topic");
+        
+        // Verify the status in the response
+        OrderResponse sentResponse = responseCaptor.getValue();
+        assertEquals(OrderStatus.READY, sentResponse.getStatus());
     }
 }

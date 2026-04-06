@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.konstantinos.zito.model.OrderStatus;
 import com.konstantinos.zito.model.TaxEntry;
 
 import lombok.Data;
@@ -30,7 +31,7 @@ public class OrderResponse {
 
     private List<OrderItemResponse> orderItems;
     private boolean paid;
-    private TaxEntry status;
+    private OrderStatus status;
 
     private String guestEmail;
     private String guestPhone;

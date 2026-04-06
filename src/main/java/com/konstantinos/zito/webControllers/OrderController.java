@@ -17,6 +17,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.konstantinos.zito.model.OrderStatus;
 import com.konstantinos.zito.model.dto.CreateOrderRequest;
 import com.konstantinos.zito.model.dto.OrderResponse;
 import com.konstantinos.zito.security.RestaurantUserDetails;
@@ -68,6 +70,25 @@ public class OrderController {
             return ResponseEntity.status(HttpStatus.CREATED).body(orderService.createGuestOrder(order));
         } catch (Exception e) {
             logger.error(String.format("Error creating order: %s", e.getMessage()));
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /*
+     * Update order status (Waiter/Admin only)
+     */
+    @PatchMapping("/{orderId}/status")
+    @PreAuthorize("hasAnyRole('WAITER', 'ADMIN')")
+    public ResponseEntity<OrderResponse> updateOrderStatus(
+            @PathVariable("orderId") UUID orderId,
+            @RequestParam OrderStatus status) {
+
+        try {
+            OrderResponse updatedOrder = orderService.updateOrderStatus(orderId, status);
+            logger.info(String.format("Order %s status updated to %s", orderId, status));
+            return ResponseEntity.ok().body(updatedOrder);
+        } catch (Exception e) {
+            logger.error(String.format("Failed to update status for order %s: %s", orderId, e.getMessage()));
             return ResponseEntity.badRequest().build();
         }
     }

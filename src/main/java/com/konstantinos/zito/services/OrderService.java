@@ -1,6 +1,7 @@
 package com.konstantinos.zito.services;
 
 import org.springframework.data.mongodb.core.aggregation.AccumulatorOperators.Sum;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,13 +40,16 @@ public class OrderService {
     private final UserRepository userRepository;
 
     private final MenuService menuService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     public OrderService(OrderRepository orderRepository,
             UserRepository userRepository,
-            MenuService menuService) {
+            MenuService menuService,
+            SimpMessagingTemplate messagingTemplate) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.menuService = menuService;
+        this.messagingTemplate = messagingTemplate;
     }
 
     public OrderResponse createGuestOrder(CreateOrderRequest request) {
@@ -59,15 +63,15 @@ public class OrderService {
         order.setPaid(false);
         order.setStatus(OrderStatus.NEW);
 
-         // email is optional
+        // email is optional
         if (request.getGuestEmail() != null) {
             order.setGuestEmail(request.getGuestEmail());
         }
 
-        //Add items and create snapshots
+        // Add items and create snapshots
         order.setOrderItems(calculateCartSnapshot(request.getCartItems()));
-        
-        //calculate order totals
+
+        // calculate order totals
         var orderTotals = calculateOrderTotals(order.getOrderItems(), request.getDiscountPercent());
         order.setNetTotal(orderTotals.getNetTotal());
         order.setTaxTotals(orderTotals.getTaxTotalsByRate());
@@ -99,17 +103,18 @@ public class OrderService {
         order.setPaid(false);
         order.setStatus(OrderStatus.NEW);
 
-       
-        //Add items and create snapshots
+        // Add items and create snapshots
         order.setOrderItems(calculateCartSnapshot(request.getCartItems()));
-        
-        //calculate order totals
+
+        // calculate order totals
         var orderTotals = calculateOrderTotals(order.getOrderItems(), request.getDiscountPercent());
         order.setNetTotal(orderTotals.getNetTotal());
         order.setTaxTotals(orderTotals.getTaxTotalsByRate());
         order.setGrossTotal(orderTotals.getGrossTotal());
-        
-        return mapToResponse(orderRepository.save(order));
+
+        Order savedOrder = orderRepository.save(order);                                                                                                                                                                                             
+        notifyStatusUpdate(savedOrder);                                                                                                                                                                                                             
+        return mapToResponse(savedOrder);   
     }
 
     public List<OrderResponse> getUserOrder(UUID viewerId) {
@@ -131,11 +136,11 @@ public class OrderService {
             throw new RuntimeException("Waiter mismatch");
         }
 
-        if(existingOrder.getStatus().compareTo(OrderStatus.CONFIRMED) > 0 ){
+        if (existingOrder.getStatus().compareTo(OrderStatus.CONFIRMED) > 0) {
             throw new RuntimeException("Cannot change order, it is already being prepared!");
 
         }
-        //TODO:: ADD TO CHANGED ORDERS REPOSITORY
+        // TODO:: ADD TO CHANGED ORDERS REPOSITORY
         existingOrder.setOrderItems(calculateCartSnapshot(request.getCartItems()));
         existingOrder.setLatest_update(new Date());
         existingOrder.setOrderPointId(request.getOrderPointId());
@@ -168,6 +173,7 @@ public class OrderService {
         response.setCreatedAt(order.getCreated_At());
         response.setLatestUpdate(order.getLatest_update());
         response.setPaid(order.isPaid());
+        response.setStatus(order.getStatus());
         response.setOrderItems(order.getOrderItems().stream().map(ci -> {
             var ciResp = new OrderItemResponse();
             ciResp.setMenuItemId(ci.getMenuItemId());
@@ -187,38 +193,41 @@ public class OrderService {
         return response;
     }
 
-
-    // Item level discount - For each item, calculate the gross price after any item discount.
+    // Item level discount - For each item, calculate the gross price after any item
+    // discount.
     // Discounted Net Price = Net Price × (1 – Item Discount %)
     // VAT = Discounted Net Price × VAT Rate
     // Gross Price = Discounted Net Price + VAT
     private List<OrderItem> calculateCartSnapshot(List<CartItemRequest> cartItems) {
-        var menuItemList = menuService.findAllItemsById(cartItems.stream().map(CartItemRequest::getMenuItemId).toList());
-        Map<String, MenuItem> menuItemMap = menuItemList.stream() .collect(
-            Collectors.toMap(MenuItem::getId, item -> item));
-        
+        var menuItemList = menuService
+                .findAllItemsById(cartItems.stream().map(CartItemRequest::getMenuItemId).toList());
+        Map<String, MenuItem> menuItemMap = menuItemList.stream().collect(
+                Collectors.toMap(MenuItem::getId, item -> item));
+
         return cartItems.stream().map(ciReq -> {
-            if(menuItemMap.size() < cartItems.size()){
+            if (menuItemMap.size() < cartItems.size()) {
                 throw new RuntimeException("Found fewer Menu Items than request, wrong MenuItem id passed");
             }
             var menuItem = menuItemMap.get(ciReq.getMenuItemId());
-            Map<String, BigDecimal> identifierPriceMap = menuItem.getItemModifiers() != null ? 
-                menuItem.getItemModifiers().stream().collect(
-                    Collectors.toMap(
-                        OrderItemModifier::getId,
-                        item -> item.getNetPrice() != null ? item.getNetPrice() : BigDecimal.ZERO)) : Map.of();
+            Map<String, BigDecimal> identifierPriceMap = menuItem.getItemModifiers() != null
+                    ? menuItem.getItemModifiers().stream().collect(
+                            Collectors.toMap(
+                                    OrderItemModifier::getId,
+                                    item -> item.getNetPrice() != null ? item.getNetPrice() : BigDecimal.ZERO))
+                    : Map.of();
             // Set base information
             OrderItem item = new OrderItem();
             item.setMenuItemId(menuItem.getId());
             item.setName(menuItem.getName());
 
-            //From cartRequest
+            // From cartRequest
             item.setQuantity(ciReq.getQuantity());
             item.setNote(ciReq.getNote());
             item.setItemModifiers(ciReq.getModifiers().stream()
-                .map(m -> {
-                        m.setNetPrice(identifierPriceMap.get(m.getId())); return m;
-                }).toList());// TODO :FIX modifiers pricing
+                    .map(m -> {
+                        m.setNetPrice(identifierPriceMap.get(m.getId()));
+                        return m;
+                    }).toList());// TODO :FIX modifiers pricing
             item.setItemDiscount(
                     ciReq.getItemDiscount() != 0 ? BigDecimal.valueOf(ciReq.getItemDiscount()) : BigDecimal.ZERO);
 
@@ -228,13 +237,12 @@ public class OrderService {
             // 2. Line net total
             BigDecimal lineNetTotal = netPrice.multiply(BigDecimal.valueOf(item.getQuantity()));
 
-            //2.5 Add net of modifiers
+            // 2.5 Add net of modifiers
             lineNetTotal = lineNetTotal.add(
-                item.getItemModifiers().stream()
-                .map(OrderItemModifier::getNetPrice)
-                .map(price -> price == null ? BigDecimal.ZERO : price)                
-                .reduce(BigDecimal.ZERO, BigDecimal::add)
-            );
+                    item.getItemModifiers().stream()
+                            .map(OrderItemModifier::getNetPrice)
+                            .map(price -> price == null ? BigDecimal.ZERO : price)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add));
 
             // 3. Apply item discount to line and save
             BigDecimal itemDiscountAmount = lineNetTotal.multiply(item.getItemDiscount())
@@ -245,7 +253,7 @@ public class OrderService {
             // 4. Compute line tax and gross () - Gross = Netprice * (1 - taxrate/100)
             BigDecimal lineTax = calculateTax(lineNetAfterItemDiscount, menuItem.getTaxRate());
             BigDecimal lineGross = lineNetAfterItemDiscount.add(lineTax);
-            
+
             var taxEntry = new TaxEntry(menuItem.getTaxRate(), lineTax);
             item.setTaxEntry(taxEntry);
             item.setNetTotal(lineNetAfterItemDiscount);
@@ -255,7 +263,8 @@ public class OrderService {
         }).toList();
     }
 
-    // Order-Level Calculation - Sum all item gross prices, then apply the order discount.
+    // Order-Level Calculation - Sum all item gross prices, then apply the order
+    // discount.
     // Subtotal Gross = Sum of all item gross prices
     // Order Discount = Subtotal Gross × Order Discount %
     // Final Gross Total = Subtotal Gross – Order Discount
@@ -274,32 +283,32 @@ public class OrderService {
                     .divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP);
 
             BigDecimal discountConsumed = BigDecimal.ZERO;
-            for(int i=0; i < items.size(); i++){
+            for (int i = 0; i < items.size(); i++) {
                 var item = items.get(i);
                 BigDecimal discountForItem;
-             
-                if(i == items.size()-1){
+
+                if (i == items.size() - 1) {
                     // The last item doesn't use a percentage calculation.
                     // It takes the remaining balance of the total discount.
                     discountForItem = totalOrderDiscount.subtract(discountConsumed);
                 } else {
-                    //compensate for rounding cents on last item
+                    // compensate for rounding cents on last item
                     BigDecimal proportion = item.getNetTotal().divide(totalNet, 6, RoundingMode.HALF_UP);
                     discountForItem = totalOrderDiscount.multiply(proportion).setScale(6, RoundingMode.HALF_UP);
                     discountConsumed = discountConsumed.add(discountForItem);
                 }
 
-                    BigDecimal newNet = item.getNetTotal().subtract(discountForItem);
-                    BigDecimal newTax = calculateTax(newNet, item.getTaxEntry().getTaxRate());
-                    BigDecimal newGross = newNet.add(newTax);
+                BigDecimal newNet = item.getNetTotal().subtract(discountForItem);
+                BigDecimal newTax = calculateTax(newNet, item.getTaxEntry().getTaxRate());
+                BigDecimal newGross = newNet.add(newTax);
 
-                    item.setNetTotal(newNet.setScale(6, RoundingMode.HALF_UP));
-                    item.getTaxEntry().setAmount(newTax);
-                    item.setGrossTotal(newGross.setScale(6, RoundingMode.HALF_UP));
-                    item.setDiscountTotal(discountForItem.setScale(6, RoundingMode.HALF_UP));
+                item.setNetTotal(newNet.setScale(6, RoundingMode.HALF_UP));
+                item.getTaxEntry().setAmount(newTax);
+                item.setGrossTotal(newGross.setScale(6, RoundingMode.HALF_UP));
+                item.setDiscountTotal(discountForItem.setScale(6, RoundingMode.HALF_UP));
             }
 
-            //Rounding to 2 decimals
+            // Rounding to 2 decimals
             orderDiscount = totalOrderDiscount.setScale(6, RoundingMode.HALF_UP);
         }
 
@@ -316,10 +325,10 @@ public class OrderService {
                 .map(e -> new TaxEntry(e.getKey(), e.getValue().setScale(2, RoundingMode.HALF_UP)))
                 .collect(Collectors.toList());
 
-        //Rounding AND SCALE
-        
-        
-        return new OrderTotals(orderGrossTotal.setScale(2, RoundingMode.HALF_UP), orderNetAfterDiscount.setScale(2, RoundingMode.HALF_UP), orderDiscount, taxTotalist);
+        // Rounding AND SCALE
+
+        return new OrderTotals(orderGrossTotal.setScale(2, RoundingMode.HALF_UP),
+                orderNetAfterDiscount.setScale(2, RoundingMode.HALF_UP), orderDiscount, taxTotalist);
     }
 
     public BigDecimal calculateTax(BigDecimal netPrice, BigDecimal taxRate) {
@@ -331,5 +340,30 @@ public class OrderService {
         BigDecimal taxRateDivisor = taxRate.divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
         BigDecimal taxTotal = netPrice.multiply(taxRateDivisor);
         return netPrice.add(taxTotal);
+    }
+
+    public OrderResponse updateOrderStatus(UUID orderId, OrderStatus newStatus) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        order.setStatus(newStatus);
+        order.setLatest_update(new Date());
+
+        Order savedOrder = orderRepository.save(order);
+        notifyStatusUpdate(savedOrder); // Trigger notification
+        return mapToResponse(savedOrder);
+    }
+
+    private void notifyStatusUpdate(Order order) {
+        OrderResponse response = mapToResponse(order);
+
+        // 1. Specific Order: For the customer's personal tracking screen
+        messagingTemplate.convertAndSend("/topic/orders/" + order.getId(), response);
+
+        // 2. Table/Point: For a tablet display at a specific table
+        messagingTemplate.convertAndSend("/topic/tables/" + order.getOrderPointId(), response);
+
+        // 3. General Dashboard: For the Kitchen or Waiter "Orders Overview"
+        messagingTemplate.convertAndSend("/topic/orders", response);
     }
 }
