@@ -213,6 +213,19 @@ public class AuthenticationController {
 
         /**
          * 
+         * Get all users (Admin only)
+         * 
+         * @return A {@code ResponseEntity} containing a list of all RestaurantUsers
+         */
+        @GetMapping("/all")
+        @PreAuthorize("hasRole('ROLE_ADMIN')")
+        public ResponseEntity<List<RestaurantUser>> getAllUsers() {
+                List<RestaurantUser> users = userRepository.findAll();
+                return ResponseEntity.ok(users);
+        }
+
+        /**
+         * 
          * Attempts to delete a user if it exists
          * 
          * @param user The {@code RestaurantUser} object to be persisted.
