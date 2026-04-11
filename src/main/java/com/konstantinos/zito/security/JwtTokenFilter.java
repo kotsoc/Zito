@@ -41,11 +41,10 @@ public class JwtTokenFilter extends OncePerRequestFilter {
         try {
             final String header = request.getHeader(HttpHeaders.AUTHORIZATION);
             
-            // 1. Only attempt authentication if the header exists and is a Bearer token
+            // Only attempt authentication if the header exists and is a Bearer token
             if (header != null && header.toLowerCase().startsWith("bearer ")) {
                 final String jwtToken = header.substring(7).trim();
-                System.out.println("Extracted JWT Token: " + jwtToken); // Debug log to verify token extraction
-                // 2. Only authenticate if the token is valid and not blacklisted
+                // Only authenticate if the token is valid and not blacklisted
                 if (jwtTokenUtil.validateJwtToken(jwtToken) && !tokenInvalidatorService.isInvalid(jwtToken)) {
                     
                     UUID userId = jwtTokenUtil.getUserId(jwtToken);
