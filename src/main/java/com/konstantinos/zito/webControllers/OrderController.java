@@ -29,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.konstantinos.zito.model.OrderStatus;
 import com.konstantinos.zito.model.dto.CreateOrderRequest;
 import com.konstantinos.zito.model.dto.OrderResponse;
+import com.konstantinos.zito.model.dto.OrderStatusRequest;
 import com.konstantinos.zito.security.RestaurantUserDetails;
 import com.konstantinos.zito.services.OrderService;
 
@@ -78,14 +79,14 @@ public class OrderController {
      * Update order status (Waiter/Admin only)
      */
     @PatchMapping("/{orderId}/status")
-    @PreAuthorize("hasAnyRole('WAITER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('WAITER', 'ADMIN', 'MANAGER')")
     public ResponseEntity<OrderResponse> updateOrderStatus(
             @PathVariable("orderId") UUID orderId,
-            @RequestParam OrderStatus status) {
+            @RequestBody OrderStatusRequest status) {
 
         try {
-            OrderResponse updatedOrder = orderService.updateOrderStatus(orderId, status);
-            logger.info(String.format("Order %s status updated to %s", orderId, status));
+            OrderResponse updatedOrder = orderService.updateOrderStatus(orderId, status.getStatus());
+            logger.info(String.format("Order %s status updated to %s", orderId, status.getStatus()));
             return ResponseEntity.ok().body(updatedOrder);
         } catch (Exception e) {
             logger.error(String.format("Failed to update status for order %s: %s", orderId, e.getMessage()));
@@ -179,4 +180,15 @@ public class OrderController {
             return ResponseEntity.notFound().build();
         }
     }
+
+       /*
+     * Get all orders 
+     */
+    @GetMapping("")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAITER', 'MANAGER', 'CHEF')")
+    public ResponseEntity<List<OrderResponse>> getOrders() {
+        List<OrderResponse> orders = orderService.getAllOrders();
+        return ResponseEntity.ok().body(orders);
+    }
+
 }

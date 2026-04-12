@@ -25,44 +25,58 @@ public class RestaurantBrandingService {
     private RestaurantBranding buildMockBranding(String restaurantId) {
         RestaurantBranding branding = new RestaurantBranding();
         branding.setId(restaurantId);
-        branding.setName("Sample Restaurant "+ restaurantId);
-        branding.setLogoUrl("https://example.com/logo.png");
-        branding.setFaviconUrl("https://example.com/favicon.png");
+        branding.setName("Cofineta Cafe");
+        branding.setLogoUrl("https://i.postimg.cc/HskK0LHT/cofi-Logo-400.png");
+        branding.setFaviconUrl("https://i.postimg.cc/HskK0LHT/cofi-Logo-400.png");
         branding.setDescription("A sample restaurant branding response.");
 
         RestaurantThemeColors lightTheme = new RestaurantThemeColors();
-        lightTheme.setPrimary("#1E88E5");
+        lightTheme.setPrimary("#055E20"); // deep palm green (brand anchor)
         lightTheme.setPrimaryForeground("#FFFFFF");
-        lightTheme.setSecondary("#FFB300");
-        lightTheme.setSecondaryForeground("#000000");
-        lightTheme.setAccent("#8E24AA");
+
+        lightTheme.setSecondary("#F4A300"); // warm sun/golden food accent
+        lightTheme.setSecondaryForeground("#1A1A1A");
+
+        lightTheme.setAccent("#2EC4B6"); // fresh aqua tropical water
         lightTheme.setAccentForeground("#FFFFFF");
-        lightTheme.setBackground("#FFFFFF");
-        lightTheme.setForeground("#212121");
-        lightTheme.setCard("#F5F5F5");
-        lightTheme.setCardForeground("#212121");
-        lightTheme.setMuted("#EEEEEE");
-        lightTheme.setMutedForeground("#616161");
-        lightTheme.setBorder("#E0E0E0");
-        lightTheme.setDestructive("#D32F2F");
+
+        lightTheme.setBackground("#FAFAF5"); // warm off-white (not cold white)
+        lightTheme.setForeground("#1F2A1F"); // soft dark green-gray
+
+        lightTheme.setCard("#FFFFFF");
+        lightTheme.setCardForeground("#1F2A1F");
+
+        lightTheme.setMuted("#E9EFE9"); // soft green-tinted gray
+        lightTheme.setMutedForeground("#5C6B5C");
+
+        lightTheme.setBorder("#D8E2D8");
+
+        lightTheme.setDestructive("#D64545");
         lightTheme.setDestructiveForeground("#FFFFFF");
 
         RestaurantThemeColors darkTheme = new RestaurantThemeColors();
-        darkTheme.setPrimary("#90CAF9");
-        darkTheme.setPrimaryForeground("#0D47A1");
-        darkTheme.setSecondary("#FFD54F");
-        darkTheme.setSecondaryForeground("#212121");
-        darkTheme.setAccent("#CE93D8");
-        darkTheme.setAccentForeground("#4A148C");
-        darkTheme.setBackground("#121212");
-        darkTheme.setForeground("#E0E0E0");
-        darkTheme.setCard("#1E1E1E");
-        darkTheme.setCardForeground("#E0E0E0");
-        darkTheme.setMuted("#2C2C2C");
-        darkTheme.setMutedForeground("#B0BEC5");
-        darkTheme.setBorder("#424242");
-        darkTheme.setDestructive("#EF5350");
-        darkTheme.setDestructiveForeground("#FFFFFF");
+        darkTheme.setPrimary("#7BC96F"); // glowing palm green
+        darkTheme.setPrimaryForeground("#0B1F10");
+
+        darkTheme.setSecondary("#FFB74D"); // warm lantern/orange glow
+        darkTheme.setSecondaryForeground("#1A1A1A");
+
+        darkTheme.setAccent("#4DD0E1"); // cool tropical cyan contrast
+        darkTheme.setAccentForeground("#00363A");
+
+        darkTheme.setBackground("#0B1410"); // deep jungle green-black
+        darkTheme.setForeground("#E6F2E6");
+
+        darkTheme.setCard("#13231A"); // elevated jungle panels
+        darkTheme.setCardForeground("#E6F2E6");
+
+        darkTheme.setMuted("#1C2E24");
+        darkTheme.setMutedForeground("#A7B7A7");
+
+        darkTheme.setBorder("#2A3D31");
+
+        darkTheme.setDestructive("#FF6B6B");
+        darkTheme.setDestructiveForeground("#0B1410");
 
         branding.setLightTheme(lightTheme);
         branding.setDarkTheme(darkTheme);

@@ -1,6 +1,7 @@
 package com.konstantinos.zito.model;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +29,8 @@ public class Order {
         this.latest_update = new Date();
         this.paid = false;
         this.status = OrderStatus.NEW;
+        this.orderItems = new ArrayList<>();
+        this.taxTotals = new ArrayList<>();
     }
 
     @Id

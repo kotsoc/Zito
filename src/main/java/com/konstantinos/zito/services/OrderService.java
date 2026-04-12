@@ -87,6 +87,11 @@ public class OrderService {
                 .map(this::mapToResponse);
     }
 
+    
+    public List<OrderResponse> getAllOrders() {
+        return orderRepository.findAll().stream().map(this::mapToResponse).toList();
+    }
+
     // --- Create a new order --- by authenticated user
     public OrderResponse createOrder(UUID userId, CreateOrderRequest request) {
         var waiterOpt = userRepository.findById(userId);
@@ -324,7 +329,19 @@ public class OrderService {
             if (item.getTaxEntry() != null && item.getTaxEntry().getTaxRate() != null) {
                 taxTotals.merge(item.getTaxEntry().getTaxRate(), item.getTaxEntry().getAmount(), BigDecimal::add);
             }
+
+            //Round item level totals to 2 decimals for storage and display
+            item.setNetTotal(item.getNetTotal().setScale(2, RoundingMode.HALF_UP));
+            item.setGrossTotal(item.getGrossTotal().setScale(2, RoundingMode.HALF_UP));
+            
+            if (item.getDiscountTotal() != null) {
+                item.setDiscountTotal(item.getDiscountTotal().setScale(2, RoundingMode.HALF_UP));
+            }
+            if (item.getTaxEntry() != null && item.getTaxEntry().getAmount() != null) {
+                item.getTaxEntry().setAmount(item.getTaxEntry().getAmount().setScale(2, RoundingMode.HALF_UP));
+            }
         }
+        
         // 7️⃣ Build TaxTotal list (round at the end)
         List<TaxEntry> taxTotalist = taxTotals.entrySet().stream()
                 .map(e -> new TaxEntry(e.getKey(), e.getValue().setScale(2, RoundingMode.HALF_UP)))

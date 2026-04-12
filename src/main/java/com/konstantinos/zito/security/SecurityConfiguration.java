@@ -84,6 +84,7 @@ public class SecurityConfiguration {
                     "/user/signin",
                     "/user/signup",
                     "/user/refresh",
+                    "/api/v1/restaurants/*/branding",
                     "/swagger-ui/**",
                     "/v3/api-docs*/**",
                     "/ws/**"
@@ -111,8 +112,8 @@ public class SecurityConfiguration {
     public FilterRegistrationBean<CorsFilter> corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
         // config.setAllowCredentials(true);
-        config.setAllowedOrigins(Arrays.asList("http://localhost:8081", "http://localhost:3000", "http://localhost:8081", "http://172.26.14.86:8081"));
-        config.setAllowedMethods(Arrays.asList("GET","POST","PUT","DELETE","OPTIONS"));
+        config.setAllowedOrigins(Arrays.asList("http://localhost:8081", "http://localhost:3000", "http://172.26.14.86:8081"));
+        config.setAllowedMethods(Arrays.asList("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
         config.setAllowedHeaders(Arrays.asList("Authorization","Cache-Control","Content-Type","refreshToken"));
         config.setAllowCredentials(true);
         

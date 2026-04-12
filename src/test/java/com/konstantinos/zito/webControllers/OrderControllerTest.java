@@ -4,6 +4,7 @@ import com.konstantinos.zito.model.OrderStatus;
 import com.konstantinos.zito.model.dto.CartItemRequest;
 import com.konstantinos.zito.model.dto.CreateOrderRequest;
 import com.konstantinos.zito.model.dto.OrderResponse;
+import com.konstantinos.zito.model.dto.OrderStatusRequest;
 import com.konstantinos.zito.security.RestaurantUserDetails;
 import com.konstantinos.zito.services.OrderService;
 
@@ -104,7 +105,7 @@ class OrderControllerTest {
         OrderResponse updatedOrder = new OrderResponse();
         when(orderService.updateOrderStatus(orderId, status)).thenReturn(updatedOrder);
 
-        ResponseEntity<OrderResponse> response = orderController.updateOrderStatus(orderId, status);
+        ResponseEntity<OrderResponse> response = orderController.updateOrderStatus(orderId, new OrderStatusRequest(status));
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(updatedOrder, response.getBody());
@@ -116,7 +117,7 @@ class OrderControllerTest {
         OrderStatus status = OrderStatus.CONFIRMED;
         when(orderService.updateOrderStatus(orderId, status)).thenThrow(new RuntimeException("fail"));
 
-        ResponseEntity<OrderResponse> response = orderController.updateOrderStatus(orderId, status);
+        ResponseEntity<OrderResponse> response = orderController.updateOrderStatus(orderId, new OrderStatusRequest(status));
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertNull(response.getBody());
