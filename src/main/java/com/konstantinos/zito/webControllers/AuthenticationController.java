@@ -119,7 +119,8 @@ public class AuthenticationController {
          */
 
         @GetMapping("/signout")
-        public ResponseEntity<Void> signOut() {
+        public ResponseEntity<Void> signOut(
+                        @CookieValue(value = "refreshToken", required = false) String refreshToken) {
                 Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
                 if (authentication == null || !(authentication.getCredentials() instanceof String)) {
@@ -127,6 +128,9 @@ public class AuthenticationController {
                 }
                 
                 this.tokenInvalidatorService.invalidateToken(authentication.getCredentials().toString());
+                if (refreshToken != null && !refreshToken.isEmpty()) {
+                        this.tokenInvalidatorService.invalidateToken(refreshToken);
+                }
                 // Clear SecurityContext
                 SecurityContextHolder.clearContext();
 
@@ -181,7 +185,7 @@ public class AuthenticationController {
                 UUID userId = jwtTokenUtil.getUserId(refreshToken);
 
                 var user = userRepository.findById(userId);
-                //TODO: Refresh token persist on DB and Revoke on logout --- @tokenInvalidationService/extend with DB
+                
                 if (user.isEmpty()) {
 
                         return ResponseEntity.status(404).body(Map.of("error", "User not found"));

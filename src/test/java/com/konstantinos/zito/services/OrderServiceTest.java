@@ -602,4 +602,60 @@ class OrderServiceTest {
         // WHEN/THEN
         assertThrows(RuntimeException.class, () -> orderService.createGuestOrder(request));
     }
+
+    @Test
+    void testRoundingIntegrity_SumOfLinesMatchesOrderTotal() {
+        // GIVEN: An item that results in repeating decimals when reverse-calculated
+        // Gross 10.00 at 24% VAT -> Net 8.064516129...
+        MenuItem mi = createMenuItem("torture", "8.064516", "24"); 
+        mi.setGrossPrice(new BigDecimal("10.00"));
+        
+        when(menuItemService.findAllItemsById(any())).thenReturn(List.of(mi));
+        when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
+
+        CreateOrderRequest request = new CreateOrderRequest();
+        request.setCartItems(List.of(
+                new CartItemRequest("torture", 3, "", List.of(), 0) // Fixed: 3 qty instead of 3 lines
+        ));
+        // Applying a discount that forces cent-splitting (33.33% of 30.00 = 9.999 -> 10.00)
+        request.setDiscountPercent(new BigDecimal("33.33")); 
+
+        // WHEN
+        OrderResponse response = orderService.createGuestOrder(request);
+
+        // THEN: Total Gross must be exactly 20.00 (30.00 - 10.00)
+        assertEquals(new BigDecimal("20.00"), response.getGrossTotal(), "Order Gross Total Mismatch");
+
+        // CRITICAL CHECK: The sum of the line totals (as printed on a receipt) MUST equal the total gross
+        BigDecimal sumOfLines = response.getOrderItems().stream()
+                .map(OrderItemResponse::getLineTotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        assertEquals(response.getGrossTotal(), sumOfLines, 
+            "Financial Integrity Violation: The sum of rounded lines does not match the Order Total!");
+    }
+
+    @Test
+    void testB2C_QuantityPricingConsistency() {
+        // GIVEN: A standard B2C item priced at exactly 10.00€ Gross (24% VAT)
+        // Previous logic starting from Net (8.06) would result in 3 * 8.06 = 24.18 Net -> 29.98 Gross
+        MenuItem mi = createMenuItem("b2c_item", "8.0645", "24");
+        mi.setGrossPrice(new BigDecimal("10.00"));
+        when(menuItemService.findAllItemsById(any())).thenReturn(List.of(mi));
+        when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
+
+        CreateOrderRequest request = new CreateOrderRequest();
+        request.setCartItems(List.of(new CartItemRequest("b2c_item", 3, "", List.of(), 0)));
+
+        // WHEN
+        OrderResponse response = orderService.createGuestOrder(request);
+
+        // THEN: Consumer expects exactly 30.00€
+        assertEquals(new BigDecimal("30.00"), response.getGrossTotal(), 
+            "B2C Violation: 3 items priced at 10.00€ must equal exactly 30.00€");
+            
+        // Line Net should be correctly back-calculated (30.00 / 1.24 = 24.19)
+        assertEquals(new BigDecimal("24.19"), response.getNetTotal(), "Net total back-calculation mismatch");
+        assertEquals(new BigDecimal("5.81"), response.getTaxTotals().get(0).getAmount(), "Tax mismatch");
+    }
 }

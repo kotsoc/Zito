@@ -241,33 +241,40 @@ public class OrderService {
             item.setItemDiscount(
                     ciReq.getItemDiscount() != 0 ? BigDecimal.valueOf(ciReq.getItemDiscount()) : BigDecimal.ZERO);
 
-            // 1. Initial Pricing Snapshots assuming EU Prices
-            BigDecimal netPrice = menuItem.getNetPrice();
+            // 1. Base Prices: Start with the correct unit Gross Price to prevent multi-unit cent miscalculations
+            BigDecimal unitGross = menuItem.getGrossPrice() != null 
+                    ? menuItem.getGrossPrice() 
+                    : calculateEUGross(menuItem.getNetPrice(), menuItem.getTaxRate());
+                    
+            BigDecimal lineGrossTotal = unitGross.multiply(BigDecimal.valueOf(item.getQuantity()));
 
-            // 2. Line net total
-            BigDecimal lineNetTotal = netPrice.multiply(BigDecimal.valueOf(item.getQuantity()));
+            // 2. Add Gross values of Modifiers
+            if (item.getItemModifiers() != null) {
+                BigDecimal modifiersGrossSum = item.getItemModifiers().stream()
+                        .map(m -> calculateEUGross(m.getNetPrice(), menuItem.getTaxRate()))
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                lineGrossTotal = lineGrossTotal.add(modifiersGrossSum);
+            }
 
-            // 2.5 Add net of modifiers
-            lineNetTotal = lineNetTotal.add(
-                    item.getItemModifiers() != null ? item.getItemModifiers().stream()
-                            .map(OrderItemModifier::getNetPrice)
-                            .map(price -> price == null ? BigDecimal.ZERO : price)
-                            .reduce(BigDecimal.ZERO, BigDecimal::add): BigDecimal.ZERO);
+            // 3. Apply Item Discount against the Line Gross
+            BigDecimal itemDiscountAmount = BigDecimal.ZERO;
+            if (item.getItemDiscount().compareTo(BigDecimal.ZERO) > 0) {
+                 itemDiscountAmount = lineGrossTotal.multiply(item.getItemDiscount())
+                         .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP); 
+            }
+            
+            BigDecimal finalLineGross = lineGrossTotal.subtract(itemDiscountAmount).setScale(2, RoundingMode.HALF_UP);
+            item.setDiscountTotal(itemDiscountAmount.setScale(2, RoundingMode.HALF_UP));
 
-            // 3. Apply item discount to line and save
-            BigDecimal itemDiscountAmount = lineNetTotal.multiply(item.getItemDiscount())
-                    .divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP); // high precision for intermediate calc
-            BigDecimal lineNetAfterItemDiscount = lineNetTotal.subtract(itemDiscountAmount);
-            item.setDiscountTotal(itemDiscountAmount);
-
-            // 4. Compute line tax and gross () - Gross = Netprice * (1 - taxrate/100)
-            BigDecimal lineTax = calculateTax(lineNetAfterItemDiscount, menuItem.getTaxRate());
-            BigDecimal lineGross = lineNetAfterItemDiscount.add(lineTax);
-
-            var taxEntry = new TaxEntry(menuItem.getTaxRate(), lineTax);
+            // 4. Reverse calculate Net and Tax from Final Gross to guarantee Exact Sums
+            BigDecimal taxRateMultiplier = BigDecimal.ONE.add(menuItem.getTaxRate().divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP));
+            BigDecimal finalLineNet = finalLineGross.divide(taxRateMultiplier, 2, RoundingMode.HALF_UP);
+            BigDecimal finalLineTax = finalLineGross.subtract(finalLineNet); // Forces Tax = Gross - Net
+            
+            TaxEntry taxEntry = new TaxEntry(menuItem.getTaxRate(), finalLineTax);
             item.setTaxEntry(taxEntry);
-            item.setNetTotal(lineNetAfterItemDiscount);
-            item.setGrossTotal(lineGross);
+            item.setNetTotal(finalLineNet);
+            item.setGrossTotal(finalLineGross);
 
             return item;
         }).toList();
@@ -283,14 +290,17 @@ public class OrderService {
         BigDecimal orderGrossTotal = BigDecimal.ZERO;
         Map<BigDecimal, BigDecimal> taxTotals = new HashMap<>();
 
-        BigDecimal totalNet = items.stream()
-                .map(OrderItem::getNetTotal)
+        // 1. Calculate Initial Total Gross from all item gross amounts
+        BigDecimal totalGross = items.stream()
+                .map(OrderItem::getGrossTotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal orderDiscount = BigDecimal.ZERO;
+        
+        // 2. Apply Order-Level Discount Pro-rata against Gross items
         if (discountRate != null && discountRate.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal totalOrderDiscount = totalNet.multiply(discountRate)
-                    .divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP);
+            orderDiscount = totalGross.multiply(discountRate)
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
             BigDecimal discountConsumed = BigDecimal.ZERO;
             for (int i = 0; i < items.size(); i++) {
@@ -298,59 +308,49 @@ public class OrderService {
                 BigDecimal discountForItem;
 
                 if (i == items.size() - 1) {
-                    // The last item doesn't use a percentage calculation.
-                    // It takes the remaining balance of the total discount.
-                    discountForItem = totalOrderDiscount.subtract(discountConsumed);
+                    // Last item catches the rounding remainder
+                    discountForItem = orderDiscount.subtract(discountConsumed);
                 } else {
-                    // compensate for rounding cents on last item
-                    BigDecimal proportion = item.getNetTotal().divide(totalNet, 6, RoundingMode.HALF_UP);
-                    discountForItem = totalOrderDiscount.multiply(proportion).setScale(6, RoundingMode.HALF_UP);
+                    // Distribute proportionately by Gross
+                    BigDecimal proportion = totalGross.compareTo(BigDecimal.ZERO) > 0 ? item.getGrossTotal().divide(totalGross, 6, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+                    discountForItem = orderDiscount.multiply(proportion).setScale(2, RoundingMode.HALF_UP);
                     discountConsumed = discountConsumed.add(discountForItem);
                 }
 
-                BigDecimal newNet = item.getNetTotal().subtract(discountForItem);
-                BigDecimal newTax = calculateTax(newNet, item.getTaxEntry().getTaxRate());
-                BigDecimal newGross = newNet.add(newTax);
-
-                item.setNetTotal(newNet.setScale(6, RoundingMode.HALF_UP));
+                BigDecimal newGross = item.getGrossTotal().subtract(discountForItem);
+                
+                // Recalculate Net and Tax using Reverse Taxation logic
+                BigDecimal taxRateMultiplier = BigDecimal.ONE.add(item.getTaxEntry().getTaxRate().divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP));
+                BigDecimal newNet = newGross.divide(taxRateMultiplier, 2, RoundingMode.HALF_UP);
+                BigDecimal newTax = newGross.subtract(newNet);
+                
+                item.setNetTotal(newNet);
                 item.getTaxEntry().setAmount(newTax);
-                item.setGrossTotal(newGross.setScale(6, RoundingMode.HALF_UP));
-                item.setDiscountTotal(discountForItem.setScale(6, RoundingMode.HALF_UP));
+                item.setGrossTotal(newGross);
+                
+                // Keep track of accumulated discount
+                BigDecimal cumulativeItemDiscount = item.getDiscountTotal() != null ? item.getDiscountTotal() : BigDecimal.ZERO;
+                item.setDiscountTotal(cumulativeItemDiscount.add(discountForItem));
             }
-
-            // Rounding to 2 decimals
-            orderDiscount = totalOrderDiscount.setScale(6, RoundingMode.HALF_UP);
         }
 
+        // 3. Final Document Accumulation (ensures doc sums match individual line sums exactly)
         for (OrderItem item : items) {
+            // Already safely rounded to 2 decimals from calculation above
             orderNetAfterDiscount = orderNetAfterDiscount.add(item.getNetTotal());
             orderGrossTotal = orderGrossTotal.add(item.getGrossTotal());
 
             if (item.getTaxEntry() != null && item.getTaxEntry().getTaxRate() != null) {
                 taxTotals.merge(item.getTaxEntry().getTaxRate(), item.getTaxEntry().getAmount(), BigDecimal::add);
             }
-
-            //Round item level totals to 2 decimals for storage and display
-            item.setNetTotal(item.getNetTotal().setScale(2, RoundingMode.HALF_UP));
-            item.setGrossTotal(item.getGrossTotal().setScale(2, RoundingMode.HALF_UP));
-            
-            if (item.getDiscountTotal() != null) {
-                item.setDiscountTotal(item.getDiscountTotal().setScale(2, RoundingMode.HALF_UP));
-            }
-            if (item.getTaxEntry() != null && item.getTaxEntry().getAmount() != null) {
-                item.getTaxEntry().setAmount(item.getTaxEntry().getAmount().setScale(2, RoundingMode.HALF_UP));
-            }
         }
         
-        // 7️⃣ Build TaxTotal list (round at the end)
+        // Convert map to list
         List<TaxEntry> taxTotalist = taxTotals.entrySet().stream()
-                .map(e -> new TaxEntry(e.getKey(), e.getValue().setScale(2, RoundingMode.HALF_UP)))
+                .map(e -> new TaxEntry(e.getKey(), e.getValue()))
                 .collect(Collectors.toList());
 
-        // Rounding AND SCALE
-
-        return new OrderTotals(orderGrossTotal.setScale(2, RoundingMode.HALF_UP),
-                orderNetAfterDiscount.setScale(2, RoundingMode.HALF_UP), orderDiscount, taxTotalist);
+        return new OrderTotals(orderGrossTotal, orderNetAfterDiscount, orderDiscount, taxTotalist);
     }
 
     public BigDecimal calculateTax(BigDecimal netPrice, BigDecimal taxRate) {
