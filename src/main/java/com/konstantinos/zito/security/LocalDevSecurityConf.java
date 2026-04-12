@@ -18,12 +18,34 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
-@Profile("dev")
+@Profile("local-dev")
 public class LocalDevSecurityConf implements AuthenticationManager {
+
+    @org.springframework.beans.factory.annotation.Value("${zito.app.cors.allowed-origins}")
+    private java.util.List<String> allowedOrigins;
+
+    @Bean
+    public org.springframework.boot.web.servlet.FilterRegistrationBean<org.springframework.web.filter.CorsFilter> corsFilter() {
+        org.springframework.web.cors.CorsConfiguration config = new org.springframework.web.cors.CorsConfiguration();
+        config.setAllowedOrigins(allowedOrigins);
+        config.setAllowedMethods(java.util.Arrays.asList("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
+        config.setAllowedHeaders(java.util.Arrays.asList("Authorization","Cache-Control","Content-Type","refreshToken"));
+        config.setAllowCredentials(true);
+        
+        org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+
+        org.springframework.boot.web.servlet.FilterRegistrationBean<org.springframework.web.filter.CorsFilter> bean =
+        new org.springframework.boot.web.servlet.FilterRegistrationBean<>(new org.springframework.web.filter.CorsFilter(source));
+
+        bean.setOrder(org.springframework.core.Ordered.HIGHEST_PRECEDENCE);
+        return bean;
+    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.cors(cors-> {});
+        http.csrf(csrf -> csrf.disable()); // Disable CSRF for dev too
+        http.cors(org.springframework.security.config.Customizer.withDefaults());
         
         http.authorizeHttpRequests(authz -> authz
                 .anyRequest().authenticated()

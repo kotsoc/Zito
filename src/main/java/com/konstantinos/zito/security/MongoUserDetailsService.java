@@ -13,7 +13,6 @@ import com.konstantinos.zito.model.RestaurantUser;
 import com.konstantinos.zito.repositories.UserRepository;
 
 @Service
-@Profile("!dev")
 public class MongoUserDetailsService implements UserDetailsService {
     private UserRepository userRepository;
 

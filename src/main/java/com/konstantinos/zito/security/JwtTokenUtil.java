@@ -31,7 +31,6 @@ import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 
 @Component
-@Profile("!dev")
 public class JwtTokenUtil {
     private static final Logger logger = LoggerFactory.getLogger(JwtTokenUtil.class);
 
@@ -43,6 +42,12 @@ public class JwtTokenUtil {
 
     @Value("${zito.app.jwtRefreshExpirationMs: 86400000}")
     private int refreshExpirationMs;
+
+    @Value("${zito.app.cookie.secure: true}") // Default to true for production safety
+    private boolean cookieSecure;
+
+    @Value("${zito.app.cookie.same-site: None}") // Default to None for cross-site cookie usage
+    private String cookieSameSite;
 
     private SecretKey key;
     private JwtParser jwtParser;
@@ -115,8 +120,8 @@ public class JwtTokenUtil {
                 .path("/user/refresh")
                 .maxAge(refreshExpirationMs / 1000)
                 .httpOnly(true)
-                .secure(false)
-                .sameSite("Lax")
+                .secure(cookieSecure)
+                .sameSite(cookieSameSite)
                 .build();
     }
 
@@ -124,9 +129,9 @@ public class JwtTokenUtil {
         return ResponseCookie.from("refreshToken", "")
                 .path("/user/refresh")
                 .httpOnly(true)
-                .secure(false)
+                .secure(cookieSecure)
                 .maxAge(0)
-                .sameSite("Lax").build();
+                .sameSite(cookieSameSite).build();
     }
 
     public String generateAccessToken(RestaurantUser user) {

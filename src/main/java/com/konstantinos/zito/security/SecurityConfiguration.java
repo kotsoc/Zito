@@ -31,11 +31,14 @@ import java.util.Arrays;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true)
-@Profile("!dev")
+@Profile("!local-dev")
 public class SecurityConfiguration {
 
     private UserDetailsService userDetailsService;
     private JwtTokenFilter tokenFilter;
+
+    @org.springframework.beans.factory.annotation.Value("${zito.app.cors.allowed-origins}")
+    private java.util.List<String> allowedOrigins;
 
     public SecurityConfiguration(UserDetailsService userDetailsService, JwtTokenFilter tokenFilter) {
         this.userDetailsService = userDetailsService;
@@ -112,7 +115,7 @@ public class SecurityConfiguration {
     public FilterRegistrationBean<CorsFilter> corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
         // config.setAllowCredentials(true);
-        config.setAllowedOrigins(Arrays.asList("http://localhost:8081", "http://localhost:3000", "http://172.26.14.86:8081"));
+        config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(Arrays.asList("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
         config.setAllowedHeaders(Arrays.asList("Authorization","Cache-Control","Content-Type","refreshToken"));
         config.setAllowCredentials(true);

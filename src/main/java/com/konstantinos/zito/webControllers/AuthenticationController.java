@@ -57,7 +57,6 @@ DELETE /users/{id}
 
 
 @RestController
-@Profile("!dev")
 @RequestMapping("/user")
 public class AuthenticationController {
         private static final Logger logger = LoggerFactory.getLogger(Authentication.class);
