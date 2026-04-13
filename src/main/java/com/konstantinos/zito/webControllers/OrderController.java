@@ -79,7 +79,7 @@ public class OrderController {
      * Update order status (Waiter/Admin only)
      */
     @PatchMapping("/{orderId}/status")
-    @PreAuthorize("hasAnyRole('WAITER', 'ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('WAITER', 'ADMIN', 'MANAGER', 'KITCHEN')")
     public ResponseEntity<OrderResponse> updateOrderStatus(
             @PathVariable("orderId") UUID orderId,
             @RequestBody OrderStatusRequest status) {
@@ -185,7 +185,7 @@ public class OrderController {
      * Get all orders 
      */
     @GetMapping("")
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAITER', 'MANAGER', 'CHEF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAITER', 'MANAGER', 'KITCHEN')")
     public ResponseEntity<List<OrderResponse>> getOrders() {
         List<OrderResponse> orders = orderService.getAllOrders();
         return ResponseEntity.ok().body(orders);

@@ -29,6 +29,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.konstantinos.zito.model.Role;
 import com.konstantinos.zito.model.RestaurantUser;
 import com.konstantinos.zito.model.dto.UpdateUserRequest;
 import com.konstantinos.zito.model.dto.LoginRequest;
@@ -53,7 +54,6 @@ PUT    /users/{id}
 DELETE /users/{id}
 
 */
-
 
 
 @RestController
@@ -115,6 +115,7 @@ public class AuthenticationController {
         /**
          * Sign out an existing account, the access token will be blacklisted
          * 
+         * 
          */
 
         @GetMapping("/signout")
@@ -150,16 +151,16 @@ public class AuthenticationController {
          * @throws javax.validation.ValidationException
          */
         @PostMapping("/signup")
-        public ResponseEntity<RestaurantUser> createRestaurauntUser(@Valid @RequestBody RegisterRequest userRequest) {
+        public ResponseEntity<RestaurantUser> createRestaurantUser(@Valid @RequestBody RegisterRequest userRequest) {
                 RestaurantUser newUser = new RestaurantUser();
                 newUser.setEmail(userRequest.getEmail());
                 newUser.setId(java.util.UUID.randomUUID());
                 newUser.setPassword(passwordEncoder.encode(userRequest.getPassword()));
                 newUser.setPhoneNumber(userRequest.getPhoneNumber());
-                newUser.addRole("ROLE_GUEST");
+                newUser.addRole(Role.GUEST.getAuthority());
                 try {
                         userRepository.save(newUser);
-                        logger.info("User {} created sucessfully", newUser.getEmail());
+                        logger.info("User {} created successfully", newUser.getEmail());
                         return ResponseEntity.status(HttpStatus.CREATED).body(newUser);
                 } catch (Exception e) {
                         logger.warn("Could not create User {} : duplicate Username", newUser.getEmail());
@@ -201,6 +202,7 @@ public class AuthenticationController {
          * Get an access token for a certain {@code RestaurantUser},
          * 
          * @return A {@code Restaurant User} and an access token for the user
+         * 
          */
         @GetMapping("/me")
         public ResponseEntity<RestaurantUser> me(@AuthenticationPrincipal RestaurantUserDetails currentUser) {
@@ -219,9 +221,10 @@ public class AuthenticationController {
          * Get all users (Admin only)
          * 
          * @return A {@code ResponseEntity} containing a list of all RestaurantUsers
+         * 
          */
         @GetMapping("/all")
-        @PreAuthorize("hasRole('ROLE_ADMIN')")
+        @PreAuthorize("hasRole('ADMIN')")
         public ResponseEntity<List<RestaurantUser>> getAllUsers() {
                 List<RestaurantUser> users = userRepository.findAll();
                 return ResponseEntity.ok(users);
@@ -232,7 +235,8 @@ public class AuthenticationController {
          * Attempts to delete a user if it exists
          * 
          * @param user The {@code RestaurantUser} object to be persisted.
-         * @return A {@code ResponseEntity} with a status of the opeartion
+         * @return A {@code ResponseEntity} with a status of the operation
+         * @throws javax.validation.ValidationException
          */
         @DeleteMapping("/{username}")
         @PreAuthorize("hasRole('ADMIN')")
@@ -250,7 +254,7 @@ public class AuthenticationController {
          * updating is the only way of changing/adding the role of a user
          * 
          * @param user The {@code RestaurantUser} object to be persisted.
-         * @return A {@code ResponseEntity} with a status of the opeartion
+         * @return A {@code ResponseEntity} with a status of the operation
          * @throws javax.validation.ValidationException
          */
         @PutMapping("/update")
@@ -264,7 +268,7 @@ public class AuthenticationController {
                         existingUser.get().setRoles(updatedUser.getRoles());
 
                         userRepository.save(existingUser.get());
-                        logger.info("User {} updated sucessfully", updatedUser.getEmail());
+                        logger.info("User {} updated successfully", updatedUser.getEmail());
                         return ResponseEntity.ok(updatedWaiter);
                 } else {
                         logger.warn("User {} was not found", updatedUser.getEmail());
