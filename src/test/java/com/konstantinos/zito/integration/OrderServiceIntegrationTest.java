@@ -4,6 +4,7 @@ import com.konstantinos.zito.model.*;
 import com.konstantinos.zito.model.dto.*;
 import com.konstantinos.zito.repositories.MenuItemRepository;
 import com.konstantinos.zito.repositories.OrderRepository;
+import com.konstantinos.zito.repositories.UserRepository;
 import com.konstantinos.zito.services.OrderService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,6 +39,7 @@ class OrderServiceIntegrationTest
     @Autowired private OrderService orderService;
     @Autowired private MenuItemRepository menuItemRepository;
     @Autowired private OrderRepository orderRepository;
+    @Autowired private UserRepository userRepository;
 
     @BeforeEach
     void setup() {
@@ -62,7 +64,10 @@ class OrderServiceIntegrationTest
         ));
 
         // WHEN
-        OrderResponse response = orderService.createGuestOrder(request);
+        RestaurantUser waiter = new RestaurantUser("discount-waiter@example.com");
+        waiter.addRole(Role.WAITER.getAuthority());
+        userRepository.save(waiter);
+        OrderResponse response = orderService.createOrder(waiter.getId(), request);
         Order savedOrder = orderRepository.findById(response.getId()).get();
 
         // THEN: Total Net = (15+40+4.50)59.5 * 0.9 = 53.55

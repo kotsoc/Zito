@@ -12,6 +12,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -81,6 +83,83 @@ class OrderServiceTest {
                 .thenReturn(List.of(m1, m2));
     }
 
+    private OrderResponse createStaffOrder(CreateOrderRequest request) {
+        UUID waiterId = UUID.randomUUID();
+        when(userRepository.findById(waiterId)).thenReturn(Optional.of(new RestaurantUser()));
+        return orderService.createOrder(waiterId, request);
+    }
+
+    @ParameterizedTest
+    @MethodSource("rejectedGuestDiscounts")
+    void guestDiscountsAreRejectedBeforePersistence(BigDecimal orderDiscount, int itemDiscount) {
+        CreateOrderRequest request = discountRequest(orderDiscount, itemDiscount);
+        var exception = assertThrows(ResponseStatusException.class,
+                () -> orderService.createGuestOrder(request));
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        verifyNoInteractions(orderRepository, menuItemService, messagingTemplate);
+    }
+
+    private static Stream<Arguments> rejectedGuestDiscounts() {
+        return Stream.of(
+                Arguments.of(new BigDecimal("10"), 0),
+                Arguments.of(null, 10),
+                Arguments.of(new BigDecimal("100"), 0),
+                Arguments.of(null, 100),
+                Arguments.of(new BigDecimal("-1"), 0),
+                Arguments.of(new BigDecimal("100.01"), 0),
+                Arguments.of(null, -1),
+                Arguments.of(null, 101));
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidStaffDiscounts")
+    void invalidStaffDiscountsAreRejectedOnCreateAndUpdate(BigDecimal orderDiscount, int itemDiscount) {
+        UUID waiterId = UUID.randomUUID();
+        when(userRepository.findById(waiterId)).thenReturn(Optional.of(new RestaurantUser()));
+        Order order = new Order();
+        order.setWaiterId(waiterId);
+        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+        CreateOrderRequest request = discountRequest(orderDiscount, itemDiscount);
+
+        assertThrows(ResponseStatusException.class,
+                () -> orderService.createOrder(waiterId, request));
+        assertThrows(ResponseStatusException.class,
+                () -> orderService.updateOrder(order.getId(), waiterId, request));
+        verify(orderRepository, never()).save(any());
+        verifyNoInteractions(menuItemService, messagingTemplate);
+    }
+
+    private static Stream<Arguments> invalidStaffDiscounts() {
+        return Stream.of(
+                Arguments.of(new BigDecimal("-0.01"), 0),
+                Arguments.of(new BigDecimal("100.01"), 0),
+                Arguments.of(null, -1),
+                Arguments.of(null, 101));
+    }
+
+    @ParameterizedTest
+    @MethodSource("validStaffDiscounts")
+    void validStaffDiscountsAreAccepted(BigDecimal orderDiscount, int itemDiscount) {
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        OrderResponse response = createStaffOrder(discountRequest(orderDiscount, itemDiscount));
+        assertTrue(response.getGrossTotal().signum() >= 0);
+        verify(orderRepository).save(any(Order.class));
+    }
+
+    private static Stream<Arguments> validStaffDiscounts() {
+        return Stream.of(Arguments.of(BigDecimal.ZERO, 0),
+                Arguments.of(new BigDecimal("12.5"), 25),
+                Arguments.of(new BigDecimal("100"), 0), Arguments.of(null, 100));
+    }
+
+    private CreateOrderRequest discountRequest(BigDecimal orderDiscount, int itemDiscount) {
+        CreateOrderRequest request = new CreateOrderRequest();
+        request.setDiscountPercent(orderDiscount);
+        request.setCartItems(List.of(new CartItemRequest("m1", 1, "", List.of(), itemDiscount),
+                new CartItemRequest("m2", 1, "", List.of(), 0)));
+        return request;
+    }
+
     // --- Private Helper Methods ---
 
     private MenuItem createMenuItem(String id, String netPrice, String taxRate, List<OrderItemModifier> modList) {
@@ -138,7 +217,7 @@ class OrderServiceTest {
         request.setDiscountPercent(orderDiscount);
 
         // WHEN
-        OrderResponse response = orderService.createGuestOrder(request);
+        OrderResponse response = createStaffOrder(request);
 
         // THEN
         assertEquals(expectedNet, response.getNetTotal().toString(), "Net Total Mismatch");
@@ -233,6 +312,7 @@ class OrderServiceTest {
         request.setOrderPointId("table-1");
         UUID cartId = UUID.randomUUID();
         request.setCartId(cartId);
+        cartItemsRequest.forEach(item -> item.setItemDiscount(0));
         request.setCartItems(cartItemsRequest);
         request.setGuestEmail("guest@example.com");
 
@@ -367,7 +447,7 @@ class OrderServiceTest {
         request.setDiscountPercent(new BigDecimal("10")); // 10% Order Discount
 
         // WHEN
-        OrderResponse response = orderService.createGuestOrder(request);
+        OrderResponse response = createStaffOrder(request);
 
         // THEN: Math Verification (Net First Logic)
         // Total Net before discount = 30.00
@@ -621,7 +701,7 @@ class OrderServiceTest {
         request.setDiscountPercent(new BigDecimal("33.33")); 
 
         // WHEN
-        OrderResponse response = orderService.createGuestOrder(request);
+        OrderResponse response = createStaffOrder(request);
 
         // THEN: Total Gross must be exactly 20.00 (30.00 - 10.00)
         assertEquals(new BigDecimal("20.00"), response.getGrossTotal(), "Order Gross Total Mismatch");

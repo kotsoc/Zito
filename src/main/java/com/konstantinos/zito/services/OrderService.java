@@ -4,6 +4,8 @@ import org.springframework.data.mongodb.core.aggregation.AccumulatorOperators.Su
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -53,6 +55,7 @@ public class OrderService {
     }
 
     public OrderResponse createGuestOrder(CreateOrderRequest request) {
+        validateDiscounts(request, false);
 
         Order order = new Order();
         order.setOrderPointId(request.getOrderPointId());
@@ -98,6 +101,7 @@ public class OrderService {
         if (waiterOpt.isEmpty()) {
             throw new RuntimeException("Waiter not found");
         }
+        validateDiscounts(request, true);
 
         Order order = new Order();
         order.setWaiterId(userId);
@@ -146,6 +150,7 @@ public class OrderService {
 
         }
         // TODO:: ADD TO CHANGED ORDERS REPOSITORY
+        validateDiscounts(request, true);
         existingOrder.setOrderItems(calculateCartSnapshot(request.getCartItems()));
         existingOrder.setLatest_update(new Date());
         existingOrder.setOrderPointId(request.getOrderPointId());
@@ -197,6 +202,30 @@ public class OrderService {
         response.setGrossTotal(order.getGrossTotal());
         response.setTaxTotals(order.getTaxTotals());
         return response;
+    }
+
+    private void validateDiscounts(CreateOrderRequest request, boolean staffOrder) {
+        BigDecimal orderDiscount = request.getDiscountPercent();
+        if (orderDiscount != null) {
+            validateDiscountRate(orderDiscount);
+            if (!staffOrder && orderDiscount.signum() != 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Guests cannot apply discounts");
+            }
+        }
+        if (request.getCartItems() != null) {
+            for (CartItemRequest item : request.getCartItems()) {
+                validateDiscountRate(BigDecimal.valueOf(item.getItemDiscount()));
+                if (!staffOrder && item.getItemDiscount() != 0) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Guests cannot apply discounts");
+                }
+            }
+        }
+    }
+
+    private void validateDiscountRate(BigDecimal discount) {
+        if (discount.signum() < 0 || discount.compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Discount must be between 0 and 100 percent");
+        }
     }
 
     // Item level discount - For each item, calculate the gross price after any item

@@ -94,6 +94,10 @@ public class SecurityConfiguration {
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/menu-items", "/api/v1/categories", "/api/v1/orders/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/orders").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/menu-items/**", "/api/v1/categories/**", "/api/v1/table/**").hasAnyRole("ADMIN", "MANAGER")
+                .requestMatchers(HttpMethod.PUT, "/api/v1/menu-items/**", "/api/v1/categories/**", "/api/v1/table/**").hasAnyRole("ADMIN", "MANAGER")
+                .requestMatchers(HttpMethod.PATCH, "/api/v1/menu-items/**", "/api/v1/categories/**", "/api/v1/table/**").hasAnyRole("ADMIN", "MANAGER")
+                .requestMatchers(HttpMethod.DELETE, "/api/v1/menu-items/**", "/api/v1/categories/**", "/api/v1/table/**").hasAnyRole("ADMIN", "MANAGER")
                 .anyRequest().authenticated());
 
         // Add your existing DaoAuthenticationProvider
