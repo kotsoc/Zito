@@ -93,6 +93,7 @@ class OrderServiceTest {
     @MethodSource("rejectedGuestDiscounts")
     void guestDiscountsAreRejectedBeforePersistence(BigDecimal orderDiscount, int itemDiscount) {
         CreateOrderRequest request = discountRequest(orderDiscount, itemDiscount);
+        request.setVersion(0L);
         var exception = assertThrows(ResponseStatusException.class,
                 () -> orderService.createGuestOrder(request));
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
@@ -117,9 +118,11 @@ class OrderServiceTest {
         UUID waiterId = UUID.randomUUID();
         when(userRepository.findById(waiterId)).thenReturn(Optional.of(new RestaurantUser()));
         Order order = new Order();
+        order.setVersion(0L);
         order.setWaiterId(waiterId);
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
         CreateOrderRequest request = discountRequest(orderDiscount, itemDiscount);
+        request.setVersion(0L);
 
         assertThrows(ResponseStatusException.class,
                 () -> orderService.createOrder(waiterId, request));
@@ -343,6 +346,7 @@ class OrderServiceTest {
     void testGetGuestOrder_FoundByCredential() throws Exception {
         UUID cartId = UUID.randomUUID();
         Order order = new Order();
+        order.setVersion(0L);
         order.setCartId(cartId);
         order.setGuestCredentialHash(java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest("secret".getBytes(java.nio.charset.StandardCharsets.UTF_8))));
         order.setGuestEmail("guest@example.com");
@@ -360,6 +364,7 @@ class OrderServiceTest {
     void testGetGuestOrder_EmailDoesNotGrantAccess() {
         UUID cartId = UUID.randomUUID();
         Order order = new Order();
+        order.setVersion(0L);
         order.setCartId(cartId);
         order.setGuestEmail("guest@example.com");
         order.setOrderItems(List.of(cartItem1));
@@ -405,13 +410,14 @@ class OrderServiceTest {
 
         RuntimeException ex = assertThrows(RuntimeException.class,
                 () -> orderService.createOrder(waiterId, new CreateOrderRequest()));
-        assertEquals("Waiter not found", ex.getMessage());
+        assertTrue(ex.getMessage().contains("Staff user not found"));
     }
 
     @Test
     void testGetOrders_ReturnsOrders() {
         UUID waiterId = UUID.randomUUID();
         Order order = new Order();
+        order.setVersion(0L);
         order.setWaiterId(waiterId);
         order.setOrderItems(List.of(cartItem1));
 
@@ -427,6 +433,7 @@ class OrderServiceTest {
     void testGetOrdersByTable_ReturnsOrders() {
         String tableNumber = "table-3";
         Order order = new Order();
+        order.setVersion(0L);
         order.setOrderPointId("table-3");
         order.setOrderItems(List.of(cartItem1, cartItem2));
 
@@ -473,13 +480,14 @@ class OrderServiceTest {
     }
 
     @Test
-    void testUpdateOrder_RecalculatesTotals() {
+    void testUpdateOrder_RecalculatesTotalsForGuestOrder() {
         // GIVEN: An existing order with 1 item (Net 10.00, Tax 10%)
         UUID waiterId = UUID.randomUUID();
         MenuItem m11 = createMenuItem("m11", "10.00", "10");
 
         Order existingOrder = new Order();
-        existingOrder.setWaiterId(waiterId);
+        existingOrder.setVersion(0L);
+        existingOrder.setWaiterId(null);
         // Initial totals set to 0 for the test
         existingOrder.setGrossTotal(BigDecimal.ZERO);
 
@@ -489,6 +497,7 @@ class OrderServiceTest {
 
         // WHEN: Update request changes quantity from 1 to 2
         CreateOrderRequest updateRequest = new CreateOrderRequest();
+        updateRequest.setVersion(0L);
         updateRequest.setOrderPointId("table-1");
         updateRequest.setCartItems(List.of(new CartItemRequest("m11", 2, "", List.of(), 0)));
         updateRequest.setDiscountPercent(BigDecimal.ZERO);
@@ -510,7 +519,7 @@ class OrderServiceTest {
 
         RuntimeException ex = assertThrows(RuntimeException.class,
                 () -> orderService.updateOrder(orderId, waiterId, request));
-        assertEquals("Order not found", ex.getMessage());
+        assertTrue(ex.getMessage().contains("Order not found"));
     }
 
     @Test
@@ -518,13 +527,17 @@ class OrderServiceTest {
         UUID orderId = UUID.randomUUID();
         UUID waiterId = UUID.randomUUID();
         Order order = new Order();
+        order.setVersion(0L);
         order.setWaiterId(waiterId);
 
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
-        orderService.deleteOrder(orderId, waiterId);
+        when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
+        orderService.cancelOrder(orderId, waiterId, 0L, "customer request");
 
-        verify(orderRepository).delete(order);
+        verify(orderRepository).save(order);
+        verify(orderRepository, never()).delete(any());
+        assertEquals(OrderStatus.CANCELED, order.getStatus());
     }
 
     @Test
@@ -532,13 +545,15 @@ class OrderServiceTest {
         UUID orderId = UUID.randomUUID();
         UUID waiterId = UUID.randomUUID();
         Order order = new Order();
-        order.setWaiterId(UUID.randomUUID()); // mismatch
+        order.setVersion(0L);
+        order.setWaiterId(UUID.randomUUID());
+        order.setPaid(true);
 
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
         RuntimeException ex = assertThrows(RuntimeException.class,
-                () -> orderService.deleteOrder(orderId, waiterId));
-        assertEquals("Waiter mismatch", ex.getMessage());
+                () -> orderService.cancelOrder(orderId, waiterId, 0L, "customer request"));
+        assertTrue(ex.getMessage().contains("Order cannot be canceled"));
     }
 
     @Test
@@ -548,8 +563,8 @@ class OrderServiceTest {
         when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
 
         RuntimeException ex = assertThrows(RuntimeException.class,
-                () -> orderService.deleteOrder(orderId, waiterId));
-        assertEquals("Order not found", ex.getMessage());
+                () -> orderService.cancelOrder(orderId, waiterId, 0L, "customer request"));
+        assertTrue(ex.getMessage().contains("Order not found"));
     }
 
     @Test
@@ -577,6 +592,7 @@ class OrderServiceTest {
     void testUpdateOrderStatus_SendsStatusUpdateNotification() {
         // GIVEN
         Order order = new Order();
+        order.setVersion(0L);
         UUID orderId = order.getId();
         order.setWaiterId(UUID.randomUUID());
         order.setOrderPointId("table-10");
@@ -587,7 +603,7 @@ class OrderServiceTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
 
         // WHEN
-        OrderResponse response = orderService.updateOrderStatus(orderId, OrderStatus.CONFIRMED);
+        OrderResponse response = orderService.updateOrderStatus(orderId, OrderStatus.CONFIRMED, 0L);
 
         // THEN: Verify status was updated and WebSocket messages were sent to all 3 topics
         assertEquals(OrderStatus.CONFIRMED, response.getStatus());
@@ -610,6 +626,7 @@ class OrderServiceTest {
     void testUpdateOrderStatus_VerifyCorrectTopicsForMultipleUpdates() {
         // GIVEN
         Order order = new Order();
+        order.setVersion(0L);
         UUID orderId = order.getId();
         order.setWaiterId(UUID.randomUUID());
         order.setOrderPointId("table-7");
@@ -620,13 +637,13 @@ class OrderServiceTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArgument(0));
 
         // WHEN: First status update
-        orderService.updateOrderStatus(orderId, OrderStatus.CONFIRMED);
+        orderService.updateOrderStatus(orderId, OrderStatus.CONFIRMED, 0L);
 
         // Reset mock state to count new calls for second update
         reset(messagingTemplate);
 
         // WHEN: Second status update
-        orderService.updateOrderStatus(orderId, OrderStatus.READY);
+        orderService.updateOrderStatus(orderId, OrderStatus.PREPARING, 0L);
 
         // THEN: Verify second update also sends to all 3 topics
         ArgumentCaptor<String> topicCaptor = ArgumentCaptor.forClass(String.class);
@@ -641,7 +658,7 @@ class OrderServiceTest {
         
         // Verify the status in the response
         OrderResponse sentResponse = responseCaptor.getValue();
-        assertEquals(OrderStatus.READY, sentResponse.getStatus());
+        assertEquals(OrderStatus.PREPARING, sentResponse.getStatus());
     }
 
     @Test
@@ -649,6 +666,7 @@ class OrderServiceTest {
         // GIVEN
         UUID waiterId = UUID.randomUUID();
         Order order = new Order();
+        order.setVersion(0L);
         order.setWaiterId(waiterId);
         order.setStatus(OrderStatus.PREPARING); // Beyond CONFIRMED
 
@@ -659,11 +677,12 @@ class OrderServiceTest {
     }
 
     @Test
-    void testUpdateOrder_ThrowsException_WhenWaiterMismatch() {
+    void testUpdateOrder_ThrowsException_WhenVersionMissing() {
         // GIVEN
         UUID waiterId = UUID.randomUUID();
         UUID otherWaiterId = UUID.randomUUID();
         Order order = new Order();
+        order.setVersion(0L);
         order.setWaiterId(waiterId);
 
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));

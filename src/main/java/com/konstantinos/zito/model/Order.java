@@ -40,6 +40,10 @@ public class Order {
     private UUID waiterId; // Only for orders created by waiters/users
     private UUID cartId; // Only for guest orders
     private String guestCredentialHash;
+    @org.springframework.data.annotation.Version
+    private Long version;
+    private String cancellationReason;
+    private UUID canceledBy;
 
     private String guestEmail; //optional
     private String guestPhone; //optional

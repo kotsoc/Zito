@@ -105,7 +105,7 @@ public class MenuService {
             menuItemCache.put(id, updated);
             return updated;
         } else {
-            throw new MenuItemNotFoundException("Mismatching IDs during update");
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Mismatching IDs during update");
         }
     }
 
@@ -165,13 +165,13 @@ public class MenuService {
     // Update a category
     public Category updateCategory(String name, Category category) {
         Category oldCategory = categoryRepository.findByName(name)
-            .orElseThrow(() -> new RuntimeException("Category not found"));
+            .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Category not found"));
         if (name.equals(category.getName())) {
             oldCategory.setDescription(category.getDescription());
             oldCategory.setName(category.getName());
             return categoryRepository.save(oldCategory);
         } else {
-            throw new RuntimeException("Mismatching category names");
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Mismatching category names");
         }
     }
 

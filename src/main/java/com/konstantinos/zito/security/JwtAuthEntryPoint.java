@@ -18,6 +18,15 @@ public class JwtAuthEntryPoint implements AuthenticationEntryPoint {
             AuthenticationException authException)
             throws IOException, ServletException {
 
-        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized: " + authException.getMessage());
+        writeError(response, 401, "UNAUTHORIZED");
+    }
+
+    public static void writeError(HttpServletResponse response, int status, String code) throws IOException {
+        response.setStatus(status);
+        response.setContentType("application/json");
+        String traceId = org.slf4j.MDC.get("traceId");
+        new com.fasterxml.jackson.databind.ObjectMapper().writeValue(response.getOutputStream(),
+                new com.konstantinos.zito.model.dto.ApiError(code,
+                        traceId == null ? java.util.UUID.randomUUID().toString() : traceId));
     }
 }

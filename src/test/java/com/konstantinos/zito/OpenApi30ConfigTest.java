@@ -61,7 +61,7 @@ class OpenApi30ConfigTest {
     }
 
     @Test
-    void consolidatesEquivalentTemplatesWithoutClaimingCategoryLookupWorks() {
+    void consolidatesEquivalentTemplatesAndKeepsCategoryLookupResponses() {
         OpenAPI api = api();
         Operation update = operation("updateCategory").parameters(List.of(
                 new Parameter().name("name").in("path").required(true).schema(new StringSchema())));
@@ -76,7 +76,7 @@ class OpenApi30ConfigTest {
         assertNotNull(category.getDelete());
         assertEquals("id", category.getPut().getParameters().get(0).getName());
         assertTrue(category.getGet().getResponses().containsKey("500"));
-        assertFalse(category.getGet().getResponses().containsKey("200"));
+        assertTrue(category.getGet().getResponses().containsKey("200"));
     }
 
     @Test

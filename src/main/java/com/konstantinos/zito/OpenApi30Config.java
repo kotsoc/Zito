@@ -50,11 +50,14 @@ public class OpenApi30Config {
                         .scheme("bearer")
                         .bearerFormat("JWT"))
                 .addSecuritySchemes("refreshCookie", new SecurityScheme()
-                    .type(SecurityScheme.Type.APIKEY).in(SecurityScheme.In.COOKIE).name("refreshToken")))
+                    .type(SecurityScheme.Type.APIKEY).in(SecurityScheme.In.COOKIE).name("refreshToken"))
+                .addSecuritySchemes("csrfHeader", new SecurityScheme()
+                    .type(SecurityScheme.Type.APIKEY).in(SecurityScheme.In.HEADER).name("X-CSRF-Protection")
+                    .description("Send the literal value 1 for refresh and logout.")))
         .info(new Info().title(apiTitle).version(apiVersion).description(
             "Current restaurant ordering API (normal JWT profile). Monetary BigDecimals are JSON strings. "
             + "Payments, refunds and fiscal receipts are not implemented. Tax and percentage discounts are partial. "
-            + "See API.md and RESTAURANT_API_PLAN.md for current limitations and the Greece/EUR roadmap. "
+            + "See docs/API.md for current limitations. "
             + "The local-dev HTTP Basic profile is not described by this contract."));
   }
 
@@ -74,6 +77,10 @@ public class OpenApi30Config {
         boolean refresh = path.equals("/user/refresh");
         operation.setSecurity(publicAccess ? new ArrayList<>() : List.of(
             new SecurityRequirement().addList(refresh ? "refreshCookie" : "bearerAuth")));
+        if (refresh || path.equals("/user/signout")) {
+          operation.getSecurity().get(0).addList("csrfHeader");
+          operation.getResponses().addApiResponse("403", new ApiResponse().description("CSRF header missing or origin rejected"));
+        }
         if (!publicAccess) {
           operation.getResponses().addApiResponse("401", new ApiResponse().description("Missing or invalid credentials"));
         }
@@ -83,12 +90,16 @@ public class OpenApi30Config {
           if ((path.equals("/api/v1/orders") && get) || path.endsWith("/status")) {
             roles = "ADMIN, WAITER, MANAGER or KITCHEN";
           } else if (path.equals("/api/v1/orders/waiter")) {
-            roles = "WAITER (ADMIN alone is insufficient)";
+            roles = get ? "WAITER" : "ADMIN, MANAGER or WAITER";
           } else if (path.startsWith("/api/v1/orders/waiter/")) {
-            roles = "ADMIN; service also requires the caller to be the original waiter";
+            roles = "ADMIN or MANAGER";
+          } else if (path.endsWith("/cancellation")) {
+            roles = "ADMIN or MANAGER";
           } else if (path.contains("/order-point/")) {
-            roles = "ADMIN or WAITER";
+            roles = "ADMIN, MANAGER, WAITER or KITCHEN";
           }
+        } else if (get && path.startsWith("/api/v1/table")) {
+          roles = "ADMIN, MANAGER, WAITER or KITCHEN";
         } else if (path.equals("/user/all") || path.equals("/user/update") || path.equals("/user/{username}")) {
           roles = "ADMIN";
         } else if (!get && (path.startsWith("/api/v1/menu-items")
@@ -123,15 +134,32 @@ public class OpenApi30Config {
           operation.getResponses().addApiResponse("404", new ApiResponse().description("Not found (also used for some empty order lists)"));
         }
         if (BAD_REQUEST.contains(id)) {
-          operation.getResponses().addApiResponse("400", new ApiResponse().description("Invalid request; some handlers also map internal failures to 400"));
+          operation.getResponses().addApiResponse("400", new ApiResponse().description("Invalid request"));
         }
         if ("createRestaurantUser".equals(id)) {
-          operation.getResponses().addApiResponse("409", new ApiResponse().description("Save failed; controller treats every persistence exception as a conflict"));
+          operation.getResponses().addApiResponse("409", new ApiResponse().description("Duplicate user"));
         }
         if ("signIn".equals(id)) {
           operation.getResponses().addApiResponse("401", new ApiResponse().description("Invalid credentials"));
         }
-        operation.getResponses().addApiResponse("500", new ApiResponse().description("Unhandled server failure; error format is not standardized"));
+        operation.getResponses().addApiResponse("500", new ApiResponse().description("Unhandled server failure"));
+        operation.getResponses().addApiResponse("503", new ApiResponse().description("Dependency unavailable"));
+        if (Set.of("updateOrder", "updateOrderStatus", "cancelOrder", "deleteOrder").contains(id)) {
+          operation.getResponses().addApiResponse("409", new ApiResponse().description("Stale order version or invalid lifecycle operation"));
+          operation.getResponses().addApiResponse("400", new ApiResponse().description("Version and valid request required"));
+          operation.getResponses().addApiResponse("404", new ApiResponse().description("Order not found"));
+        }
+        if (Set.of("signIn", "createRestaurantUser", "refreshToken", "signOut", "createOrder", "getOrder").contains(id)) {
+          operation.getResponses().addApiResponse("429", new ApiResponse().description("Per-client-IP request limit exceeded"));
+          operation.getResponses().addApiResponse("413", new ApiResponse().description("Payload exceeds configured size limit"));
+        }
+        operation.getResponses().forEach((status, errorResponse) -> {
+          if (status.matches("[45][0-9][0-9]")) {
+            errorResponse.setContent(new Content().addMediaType("application/json", new MediaType().schema(
+                new Schema<>().type("object").addProperty("code", new Schema<>().type("string"))
+                    .addProperty("traceId", new Schema<>().type("string")))));
+          }
+        });
         if (refresh) {
           response.setContent(new Content().addMediaType("application/json", new MediaType().schema(
               new Schema<>().type("object").addProperty("accessToken", new Schema<>().type("string"))
@@ -139,7 +167,8 @@ public class OpenApi30Config {
           for (String status : List.of("401", "404")) {
             operation.getResponses().get(status).setContent(new Content().addMediaType("application/json",
                 new MediaType().schema(new Schema<>().type("object")
-                    .addProperty("error", new Schema<>().type("string")))));
+                    .addProperty("code", new Schema<>().type("string"))
+                    .addProperty("traceId", new Schema<>().type("string")))));
           }
         }
       }));
@@ -147,16 +176,6 @@ public class OpenApi30Config {
       // OpenAPI forbids equivalent templated paths with different parameter names.
       mergePath(api, "/api/v1/menu-items/{name}", "/api/v1/menu-items/{id}", "id");
       mergePath(api, "/api/v1/categories/{name}", "/api/v1/categories/{id}", "id");
-      PathItem category = api.getPaths().get("/api/v1/categories/{id}");
-      if (category != null && category.getGet() != null) {
-        var operation = category.getGet();
-        operation.setSummary("Category lookup — currently ambiguous");
-        operation.setDescription("Two controller GET mappings compete for this URI (name and integer ID). "
-            + "Requests cannot reliably dispatch. This is a known runtime defect, not two supported lookup routes.");
-        operation.getResponses().remove("200");
-        operation.getResponses().remove("404");
-        operation.getResponses().addApiResponse("500", new ApiResponse().description("Ambiguous handler mapping"));
-      }
       if (api.getComponents() != null && api.getComponents().getSchemas() != null) {
         api.getComponents().getSchemas().values().forEach(this::documentWireTypes);
         describeFields(api, "OrderResponse", List.of("currency", "discount", "tip", "guestEmail", "guestPhone"),
@@ -229,18 +248,18 @@ public class OpenApi30Config {
   private static final Set<String> BAD_REQUEST = Set.of("signIn", "createRestaurantUser", "updateWaiter", "PostMenuItems",
       "createOrder", "createOrderForWaiter", "updateOrder", "updateOrderStatus", "createTable", "updateTable", "addTableToLayout");
   private static final Map<String, String> NOTES = Map.ofEntries(
-      Map.entry("signIn", "Returns an access JWT and sets the HttpOnly refreshToken cookie, scoped to /user/refresh."),
-      Map.entry("refreshToken", "Uses the refreshToken cookie, not an access JWT. Does not rotate the refresh token. Error bodies contain an error string."),
-      Map.entry("signOut", "State-changing GET. Invalidates the bearer token and clears the refresh cookie. The cookie's path prevents browsers sending it here for revocation."),
-      Map.entry("createRestaurantUser", "Creates ROLE_GUEST. Currently returns the persistence model, including its password hash; replace with a safe response DTO before release."),
-      Map.entry("getOrder", "Requires cartId; guestEmail is optional. Current service accepts matching cartId OR email. Email is not proof of ownership. Staff orders can trigger a null cartId error."),
+      Map.entry("signIn", "Returns an access JWT and sets the HttpOnly refreshToken cookie, scoped to /user."),
+      Map.entry("refreshToken", "Rotates a single-use refresh cookie; reuse revokes further refreshes in its family. Requires X-CSRF-Protection: 1."),
+      Map.entry("signOut", "POST logout invalidates the bearer token and refresh family and clears the /user cookie. Requires X-CSRF-Protection: 1."),
+      Map.entry("createRestaurantUser", "Creates ROLE_GUEST and returns a safe user DTO."),
+      Map.entry("getOrder", "Requires the X-Order-Credential header returned on guest creation; only a hash is stored."),
       Map.entry("createOrder", "Guest discounts must be zero/absent. Currency and customerNote are currently ignored. No idempotency or guest-created notification."),
       Map.entry("createOrderForWaiter", "Staff percentage discounts 0–100. Request cartId, currency and customerNote are not persisted on this path."),
-      Map.entry("updateOrder", "Returns 201. Only NEW/CONFIRMED can be edited; no update event is emitted. Service exceptions are not consistently mapped."),
-      Map.entry("updateOrderStatus", "Accepts any enum status without transition checks. Emits OrderResponse on three STOMP topics. Does not confirm payment."),
+      Map.entry("updateOrder", "Returns 201. ADMIN may edit unpaid NEW/CONFIRMED orders with the current version; no update event is emitted."),
+      Map.entry("updateOrderStatus", "Requires current version and the next lifecycle status. KITCHEN may advance to PREPARING/READY. Does not confirm payment."),
       Map.entry("getOrders", "Unpaginated list. Currency, discount, tip and guest contact response fields are not mapped; item unitPrice and tax snapshots are unset."),
-      Map.entry("UpdateMenuItem", "Path is a menu item ID; body ID must match. Only name, description, net/gross price and categoryId are updated."),
-      Map.entry("updateTable", "Checks the path ID exists, then saves the body ID without checking equality."),
+      Map.entry("UpdateMenuItem", "Path is a menu item ID; body ID must match. Persists pricing, availability, category, image and modifier fields."),
+      Map.entry("updateTable", "Requires an existing path ID and an equal body ID."),
       Map.entry("getBranding", "Unknown restaurant IDs return sample branding with 200, not 404.")
   );
 }

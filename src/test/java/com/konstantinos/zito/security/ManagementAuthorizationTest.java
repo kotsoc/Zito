@@ -80,6 +80,26 @@ class ManagementAuthorizationTest {
         mvc.perform(get(path)).andExpect(status().isNoContent());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"GUEST", "USER"})
+    void customerCannotReadTableOrders(String role) throws Exception {
+        mvc.perform(get("/api/v1/table/1").with(user("customer").roles(role)))
+                .andExpect(status().isForbidden());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ADMIN", "MANAGER", "WAITER", "KITCHEN"})
+    void staffCanReadTableOrders(String role) throws Exception {
+        mvc.perform(get("/api/v1/table/1").with(user("staff").roles(role)))
+                .andExpect(status().isNoContent());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ADMIN", "MANAGER", "WAITER", "KITCHEN", "GUEST"})
+    void websocketRemainsBlockedUntilSubscriptionAuthorization(String role) throws Exception {
+        mvc.perform(get("/ws").with(user("user").roles(role))).andExpect(status().isForbidden());
+    }
+
     @RestController
     static class Endpoints {
         @RequestMapping(value = {"/api/v1/menu-items", "/api/v1/menu-items/**",

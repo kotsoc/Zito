@@ -173,7 +173,7 @@ class AuthenticationControllerWebMvcTest {
 
         @Test
         void register_duplicateUser_returns409() throws Exception {
-                when(userRepository.save(any())).thenThrow(new RuntimeException());
+                when(userRepository.save(any())).thenThrow(new org.springframework.dao.DuplicateKeyException("duplicate"));
 
                 mockMvc.perform(post("/user/signup")
                                 .contentType(MediaType.APPLICATION_JSON)
@@ -208,7 +208,7 @@ class AuthenticationControllerWebMvcTest {
                                 .thenReturn(clearCookie);
 
                 // Act + Assert
-                mockMvc.perform(get("/user/signout"))
+                mockMvc.perform(post("/user/signout"))
                                 .andExpect(status().isOk())
                                 .andExpect(header().string(
                                                 HttpHeaders.SET_COOKIE,
@@ -219,7 +219,7 @@ class AuthenticationControllerWebMvcTest {
 
         @Test
         void signOut_noAuthentication_returns401() throws Exception {
-                mockMvc.perform(get("/user/signout"))
+                mockMvc.perform(post("/user/signout"))
                                 .andExpect(status().isUnauthorized());
         }
 
@@ -243,6 +243,10 @@ class AuthenticationControllerWebMvcTest {
 
                 when(jwtTokenUtil.getUserId("refresh-token"))
                                 .thenReturn(userId);
+                when(tokenInvalidatorService.consumeRefreshToken("refresh-token")).thenReturn(true);
+                when(jwtTokenUtil.getRefreshFamily("refresh-token")).thenReturn("family");
+                when(jwtTokenUtil.rotateRefreshCookie(user, "family"))
+                                .thenReturn(ResponseCookie.from("refreshToken", "rotated-token").path("/user").build());
 
                 when(userRepository.findById(userId))
                                 .thenReturn(Optional.of(user));

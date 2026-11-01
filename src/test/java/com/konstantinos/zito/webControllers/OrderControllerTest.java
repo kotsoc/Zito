@@ -67,10 +67,8 @@ class OrderControllerTest {
         when(orderService.getGuestOrder(eq(orderId), eq(guestEmail)))
                 .thenReturn(Optional.empty());
 
-        ResponseEntity<OrderResponse> response = orderController.getOrder(orderId, guestEmail);
-
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertNull(response.getBody());
+        assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> orderController.getOrder(orderId, guestEmail));
     }
 
     @Test
@@ -92,10 +90,7 @@ class OrderControllerTest {
         when(request.getCartItems()).thenReturn(List.of(cartItemRequest));
         when(orderService.createGuestOrder(request)).thenThrow(new RuntimeException("fail"));
 
-        ResponseEntity<OrderResponse> response = orderController.createOrder(request);
-
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertNull(response.getBody());
+        assertThrows(RuntimeException.class, () -> orderController.createOrder(request));
     }
 
     @Test
@@ -103,9 +98,9 @@ class OrderControllerTest {
         UUID orderId = UUID.randomUUID();
         OrderStatus status = OrderStatus.CONFIRMED;
         OrderResponse updatedOrder = new OrderResponse();
-        when(orderService.updateOrderStatus(orderId, status)).thenReturn(updatedOrder);
+        when(orderService.updateOrderStatus(orderId, status, 0L)).thenReturn(updatedOrder);
 
-        ResponseEntity<OrderResponse> response = orderController.updateOrderStatus(orderId, new OrderStatusRequest(status));
+        ResponseEntity<OrderResponse> response = orderController.updateOrderStatus(orderId, new OrderStatusRequest(0L, status));
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(updatedOrder, response.getBody());
@@ -115,12 +110,9 @@ class OrderControllerTest {
     void updateOrderStatus_exception_returnsBadRequest() {
         UUID orderId = UUID.randomUUID();
         OrderStatus status = OrderStatus.CONFIRMED;
-        when(orderService.updateOrderStatus(orderId, status)).thenThrow(new RuntimeException("fail"));
+        when(orderService.updateOrderStatus(orderId, status, 0L)).thenThrow(new RuntimeException("fail"));
 
-        ResponseEntity<OrderResponse> response = orderController.updateOrderStatus(orderId, new OrderStatusRequest(status));
-
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertNull(response.getBody());
+        assertThrows(RuntimeException.class, () -> orderController.updateOrderStatus(orderId, new OrderStatusRequest(0L, status)));
     }
 
     @Test
@@ -141,10 +133,8 @@ class OrderControllerTest {
         UUID waiterId = UUID.randomUUID();
         when(orderService.getUserOrder(waiterId)).thenReturn(Collections.emptyList());
 
-        ResponseEntity<List<OrderResponse>> response = orderController.getOrdersByWaiter(currentUser);
-
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertNull(response.getBody());
+        assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> orderController.getOrdersByWaiter(currentUser));
     }
 
     @Test
@@ -168,12 +158,9 @@ class OrderControllerTest {
         CreateOrderRequest request = mock(CreateOrderRequest.class);
         when(request.getCartItems()).thenReturn(List.of(cartItemRequest));
     
-        when(orderService.createOrder(waiterId, request)).thenThrow(new RuntimeException("fail"));
+        when(orderService.createOrder(currentUser.getId(), request)).thenThrow(new RuntimeException("fail"));
 
-        ResponseEntity<OrderResponse> response = orderController.createOrderForWaiter(currentUser, request);
-
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertNull(response.getBody());
+        assertThrows(RuntimeException.class, () -> orderController.createOrderForWaiter(currentUser, request));
     }
 
     @Test
@@ -198,19 +185,17 @@ class OrderControllerTest {
         CreateOrderRequest request = mock(CreateOrderRequest.class);
         when(orderService.updateOrder(orderId, waiterId, request)).thenReturn(null);
 
-        ResponseEntity<OrderResponse> response = orderController.updateOrder(orderId, request, currentUser);
-
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertNull(response.getBody());
+        assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> orderController.updateOrder(orderId, request, currentUser));
     }
 
     @Test
     void deleteOrder_success_returnsNoContent() {
         UUID orderId = UUID.randomUUID();
 
-        ResponseEntity<Void> response = orderController.deleteOrder(orderId, currentUser);
+        ResponseEntity<Void> response = orderController.deleteOrder(orderId, 0L, "customer request", currentUser);
 
-        verify(orderService).deleteOrder(orderId, currentUser.getId());
+        verify(orderService).cancelOrder(orderId, currentUser.getId(), 0L, "customer request");
         assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
         assertNull(response.getBody());
     }
@@ -232,9 +217,7 @@ class OrderControllerTest {
         String orderPointId = "table-1";
         when(orderService.getOrdersByTable(orderPointId)).thenReturn(Collections.emptyList());
 
-        ResponseEntity<List<OrderResponse>> response = orderController.getOrdersByTable(orderPointId);
-
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertNull(response.getBody());
+        assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> orderController.getOrdersByTable(orderPointId));
     }
 }

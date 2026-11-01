@@ -73,7 +73,8 @@ public class SecurityConfiguration {
 
         http
             .exceptionHandling(ex -> ex
-            .authenticationEntryPoint(authEntryPoint))
+            .authenticationEntryPoint(authEntryPoint)
+            .accessDeniedHandler((request, response, exception) -> JwtAuthEntryPoint.writeError(response, 403, "FORBIDDEN")))
             .authorizeHttpRequests(authz -> authz
                 .requestMatchers(
                     "/*.png",
@@ -88,10 +89,12 @@ public class SecurityConfiguration {
                     "/user/refresh",
                     "/api/v1/restaurants/*/branding",
                     "/swagger-ui/**",
-                    "/v3/api-docs*/**",
-                    "/ws/**"
+                    "/v3/api-docs*/**"
                 ).permitAll()
                 .requestMatchers("/actuator/**").hasRole("ADMIN")
+                // Re-enable after step 4 adds CONNECT/SUBSCRIBE and delivery authorization.
+                .requestMatchers("/ws/**").denyAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/table", "/api/v1/table/**").hasAnyRole("ADMIN", "MANAGER", "WAITER", "KITCHEN")
                 .requestMatchers(HttpMethod.GET, "/api/v1/menu-items", "/api/v1/categories", "/api/v1/orders/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/orders").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/menu-items/**", "/api/v1/categories/**", "/api/v1/table/**").hasAnyRole("ADMIN", "MANAGER")
@@ -121,7 +124,7 @@ public class SecurityConfiguration {
         // config.setAllowCredentials(true);
         config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(Arrays.asList("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
-        config.setAllowedHeaders(Arrays.asList("Authorization","Cache-Control","Content-Type","refreshToken", "X-Order-Credential"));
+        config.setAllowedHeaders(Arrays.asList("Authorization","Cache-Control","Content-Type","refreshToken", "X-Order-Credential", "X-CSRF-Protection"));
         config.setAllowCredentials(true);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

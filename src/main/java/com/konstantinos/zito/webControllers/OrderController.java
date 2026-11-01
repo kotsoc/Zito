@@ -31,6 +31,8 @@ import com.konstantinos.zito.model.OrderStatus;
 import com.konstantinos.zito.model.dto.CreateOrderRequest;
 import com.konstantinos.zito.model.dto.OrderResponse;
 import com.konstantinos.zito.model.dto.OrderStatusRequest;
+import com.konstantinos.zito.model.dto.CancelOrderRequest;
+import org.springframework.web.server.ResponseStatusException;
 import com.konstantinos.zito.security.RestaurantUserDetails;
 import com.konstantinos.zito.services.OrderService;
 
@@ -58,7 +60,7 @@ public class OrderController {
             if (order.isPresent()) {
                 return ResponseEntity.ok().body(order.get());
             } else {
-                return ResponseEntity.notFound().build();
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found");
             }
     }
 
@@ -67,32 +69,22 @@ public class OrderController {
      */
     @PostMapping()
     public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody CreateOrderRequest order) {
-        try {
             logger.info(String.format("Order received by %s with %d items", order.getGuestEmail(), order.getCartItems().size()));
             return ResponseEntity.status(HttpStatus.CREATED).body(orderService.createGuestOrder(order));
-        } catch (Exception e) {
-            logger.error(String.format("Error creating order: %s", e.getMessage()));
-            return ResponseEntity.badRequest().build();
-        }
     }
 
     /*
      * Update order status (Waiter/Admin only)
      */
     @PatchMapping("/{orderId}/status")
-    @PreAuthorize("hasAnyRole('WAITER', 'ADMIN', 'MANAGER', 'KITCHEN')")
+    @PreAuthorize("hasAnyRole('WAITER', 'ADMIN', 'MANAGER') or (hasRole('KITCHEN') and (#status.status.name() == 'PREPARING' or #status.status.name() == 'READY'))")
     public ResponseEntity<OrderResponse> updateOrderStatus(
             @PathVariable("orderId") UUID orderId,
             @Valid @RequestBody OrderStatusRequest status) {
 
-        try {
-            OrderResponse updatedOrder = orderService.updateOrderStatus(orderId, status.getStatus());
+            OrderResponse updatedOrder = orderService.updateOrderStatus(orderId, status.getStatus(), status.getVersion());
             logger.info(String.format("Order %s status updated to %s", orderId, status.getStatus()));
             return ResponseEntity.ok().body(updatedOrder);
-        } catch (Exception e) {
-            logger.error(String.format("Failed to update status for order %s: %s", orderId, e.getMessage()));
-            return ResponseEntity.badRequest().build();
-        }
     }
 
     // ------- Waiter Endpoints ------- //
@@ -109,7 +101,7 @@ public class OrderController {
            return ResponseEntity.ok().body(orders);
         } else {
             logger.info(String.format("No orders found for waiter %s", waiterId));
-           return ResponseEntity.notFound().build();
+           throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Orders not found");
         }   
     }
 
@@ -117,27 +109,22 @@ public class OrderController {
      * Create a new order for a waiter
      */
     @PostMapping("/waiter")
-    @PreAuthorize("hasAnyRole('WAITER')")
+    @PreAuthorize("hasAnyRole('WAITER', 'ADMIN', 'MANAGER')")
     public ResponseEntity<OrderResponse> createOrderForWaiter(
            @AuthenticationPrincipal RestaurantUserDetails currentUser,
             @Valid @RequestBody CreateOrderRequest createOrderRequest) {
 
-        try {
             OrderResponse orderResponse = orderService.createOrder(currentUser.getId(), createOrderRequest);
             logger.info(String.format("Order %s created by %s with %d items", 
                     orderResponse.getId(),currentUser.getId(), createOrderRequest.getCartItems().size()));
             return ResponseEntity.status(HttpStatus.CREATED).body(orderResponse);
-        } catch (Exception e) {
-            logger.error(String.format("Failed to create order for user %s", currentUser.getId()));
-            return ResponseEntity.badRequest().build();
-        }
     }
 
     /*
      * Update an order (Admin only)
      */
     @PutMapping("/waiter/{orderId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<OrderResponse> updateOrder(
             @PathVariable("orderId") UUID orderId,
             @Valid @RequestBody CreateOrderRequest updatedOrderRequest,
@@ -150,7 +137,7 @@ public class OrderController {
             return ResponseEntity.status(HttpStatus.CREATED).body(updatedOrder);
         } else {
             logger.error(String.format("Failed to update order for user %s", currentUser.getId()));
-            return ResponseEntity.badRequest().build();
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order update rejected");
         }
     }
 
@@ -158,27 +145,37 @@ public class OrderController {
      * Delete an order (Admin only)
      */
     @DeleteMapping("/waiter/{orderId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @Deprecated
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<Void> deleteOrder(
             @PathVariable("orderId") UUID orderId,
+            @RequestParam Long version, @RequestParam String reason,
             @AuthenticationPrincipal RestaurantUserDetails currentUser) {
 
-        orderService.deleteOrder(orderId, currentUser.getId());
+        orderService.cancelOrder(orderId, currentUser.getId(), version, reason);
         logger.info(String.format("Delete order %s, deleted by %s", orderId, currentUser.getId()));
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{orderId}/cancellation")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<OrderResponse> cancelOrder(@PathVariable UUID orderId,
+            @Valid @RequestBody CancelOrderRequest request,
+            @AuthenticationPrincipal RestaurantUserDetails currentUser) {
+        return ResponseEntity.ok(orderService.cancelOrder(orderId, currentUser.getId(), request.getVersion(), request.getReason()));
     }
 
     /*
      * Get all orders for a table
      */
     @GetMapping("/order-point/{orderPointId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAITER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'WAITER', 'KITCHEN')")
     public ResponseEntity<List<OrderResponse>> getOrdersByTable(@PathVariable("orderPointId") String     orderPointId) {
         List<OrderResponse> orders = orderService.getOrdersByTable(orderPointId);
         if (!orders.isEmpty()) {
             return ResponseEntity.ok().body(orders);
         } else {
-            return ResponseEntity.notFound().build();
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Orders not found");
         }
     }
 

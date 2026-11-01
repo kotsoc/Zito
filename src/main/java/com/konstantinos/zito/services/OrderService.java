@@ -117,7 +117,7 @@ public class OrderService {
     public OrderResponse createOrder(UUID userId, CreateOrderRequest request) {
         var waiterOpt = userRepository.findById(userId);
         if (waiterOpt.isEmpty()) {
-            throw new RuntimeException("Waiter not found");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Staff user not found");
         }
         validateDiscounts(request, true);
 
@@ -157,14 +157,13 @@ public class OrderService {
     // --- Update order ---
     public OrderResponse updateOrder(UUID orderId, UUID waiterId, CreateOrderRequest request) {
         Order existingOrder = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
 
-        if (!existingOrder.getWaiterId().equals(waiterId)) {
-            throw new RuntimeException("Waiter mismatch");
-        }
+        checkVersion(existingOrder, request.getVersion());
 
-        if (existingOrder.getStatus().compareTo(OrderStatus.CONFIRMED) > 0) {
-            throw new RuntimeException("Cannot change order, it is already being prepared!");
+        if (existingOrder.isPaid() || (existingOrder.getStatus() != OrderStatus.NEW
+                && existingOrder.getStatus() != OrderStatus.CONFIRMED)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot change order, it is already being prepared!");
 
         }
         // TODO:: ADD TO CHANGED ORDERS REPOSITORY
@@ -182,20 +181,31 @@ public class OrderService {
         return mapToResponse(orderRepository.save(existingOrder));
     }
 
-    // --- Delete order ---
-    public void deleteOrder(UUID orderId, UUID waiterId) {
+    // Preserve order history; administrative cancellation never deletes the document.
+    public OrderResponse cancelOrder(UUID orderId, UUID actorId, Long version, String reason) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
-        if (!order.getWaiterId().equals(waiterId)) {
-            // TODO: custom exception
-            throw new RuntimeException("Waiter mismatch");
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+        checkVersion(order, version);
+        if (reason == null || reason.isBlank() || reason.length() > 500) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cancellation reason required");
         }
-        orderRepository.delete(order);
+        if (order.isPaid() || order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Order cannot be canceled");
+        }
+        order.setStatus(OrderStatus.CANCELED);
+        order.setCancellationReason(reason);
+        order.setCanceledBy(actorId);
+        order.setLatest_update(new Date());
+        Order saved = orderRepository.save(order);
+        notifyStatusUpdate(saved);
+        return mapToResponse(saved);
     }
 
     private OrderResponse mapToResponse(Order order) {
         OrderResponse response = new OrderResponse();
         response.setId(order.getId());
+        response.setVersion(order.getVersion());
+        response.setCancellationReason(order.getCancellationReason());
         response.setCartId(order.getCartId());
         response.setWaiterId(order.getWaiterId());
         response.setOrderPointId(order.getOrderPointId());
@@ -259,7 +269,7 @@ public class OrderService {
 
         return cartItems.stream().map(ciReq -> {
             if (menuItemMap.size() < cartItems.size()) {
-                throw new RuntimeException("Found fewer Menu Items than request, wrong MenuItem id passed");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid menu item reference");
             }
             var menuItem = menuItemMap.get(ciReq.getMenuItemId());
             Map<String, BigDecimal> identifierPriceMap = menuItem.getItemModifiers() != null
@@ -411,9 +421,21 @@ public class OrderService {
         return netPrice.add(taxTotal);
     }
 
-    public OrderResponse updateOrderStatus(UUID orderId, OrderStatus newStatus) {
+    public OrderResponse updateOrderStatus(UUID orderId, OrderStatus newStatus, Long version) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+
+        checkVersion(order, version);
+        OrderStatus nextStatus = switch (order.getStatus()) {
+            case NEW -> OrderStatus.CONFIRMED;
+            case CONFIRMED -> OrderStatus.PREPARING;
+            case PREPARING -> OrderStatus.READY;
+            case READY -> OrderStatus.COMPLETED;
+            case COMPLETED, CANCELED -> null;
+        };
+        if (newStatus == null || newStatus != nextStatus) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Invalid status transition");
+        }
 
         order.setStatus(newStatus);
         order.setLatest_update(new Date());
@@ -421,6 +443,15 @@ public class OrderService {
         Order savedOrder = orderRepository.save(order);
         notifyStatusUpdate(savedOrder); // Trigger notification
         return mapToResponse(savedOrder);
+    }
+
+    private void checkVersion(Order order, Long version) {
+        if (version == null || version < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order version required");
+        }
+        if (order.getVersion() == null || !order.getVersion().equals(version)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Order version changed or requires migration");
+        }
     }
 
     private void notifyStatusUpdate(Order order) {

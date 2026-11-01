@@ -16,6 +16,8 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 @Data
 @NoArgsConstructor
 public class OrderResponse {
+    private Long version;
+    private String cancellationReason;
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private String guestCredential;
     private UUID id;

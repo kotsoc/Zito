@@ -43,7 +43,7 @@ public class CategoryController {
     public ResponseEntity<Category> getCategoryByName(@PathVariable String name) {
         return menuItemService.findCategory(name)
             .map(ResponseEntity::ok)
-            .orElse(ResponseEntity.notFound().build());
+            .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
     }
 
     /*
@@ -53,7 +53,7 @@ public class CategoryController {
     public ResponseEntity<Category> getCategoryById(@PathVariable int id) {
         return menuItemService.findCategoryById(id)
             .map(ResponseEntity::ok)
-            .orElse(ResponseEntity.notFound().build());
+            .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
     }
 
      /*
@@ -74,12 +74,8 @@ public class CategoryController {
      */
     @PutMapping("/{name}")
     public ResponseEntity<Category> updateCategory(@PathVariable String name, @RequestBody Category category) {
-        try {
             Category updated = menuItemService.updateCategory(name, category);
             return ResponseEntity.ok(updated);
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
-        }
     }
 
     /*

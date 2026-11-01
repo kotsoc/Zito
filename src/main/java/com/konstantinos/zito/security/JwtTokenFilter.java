@@ -61,6 +61,9 @@ public class JwtTokenFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 }
             }
+        } catch (org.springframework.dao.DataAccessException e) {
+            JwtAuthEntryPoint.writeError(response, 503, "DEPENDENCY_UNAVAILABLE");
+            return;
         } catch (Exception e) {
             // Log the error, but DO NOT block the request. 
             // Let Spring Security handle the rejection later if this was a protected route.

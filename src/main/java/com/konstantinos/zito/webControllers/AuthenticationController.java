@@ -95,7 +95,7 @@ public class AuthenticationController {
                                                 request.getPassword()));
 
                 if (!(authentication.getPrincipal() instanceof RestaurantUserDetails userDetails)) {
-                        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+                        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid principal");
                 }
 
                 List<String> roles = userDetails.getAuthorities().stream()
@@ -119,18 +119,19 @@ public class AuthenticationController {
          * 
          */
 
-        @GetMapping("/signout")
+        @PostMapping("/signout")
         public ResponseEntity<Void> signOut(
                         @CookieValue(value = "refreshToken", required = false) String refreshToken) {
                 Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
                 if (authentication == null || !(authentication.getCredentials() instanceof String)) {
-                        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+                        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
                 }
                 
                 this.tokenInvalidatorService.invalidateToken(authentication.getCredentials().toString());
-                if (refreshToken != null && !refreshToken.isEmpty()) {
+                if (refreshToken != null && jwtTokenUtil.validateJwtRefreshToken(refreshToken)) {
                         this.tokenInvalidatorService.invalidateToken(refreshToken);
+                        this.tokenInvalidatorService.revokeRefreshFamily(refreshToken);
                 }
                 // Clear SecurityContext
                 SecurityContextHolder.clearContext();
@@ -163,9 +164,9 @@ public class AuthenticationController {
                         userRepository.save(newUser);
                         logger.info("User {} created successfully", newUser.getEmail());
                         return ResponseEntity.status(HttpStatus.CREATED).body(UserResponse.from(newUser));
-                } catch (Exception e) {
+                } catch (org.springframework.dao.DuplicateKeyException e) {
                         logger.warn("Could not create User {} : duplicate Username", newUser.getEmail());
-                        return ResponseEntity.status(HttpStatus.CONFLICT).body(null);
+                        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.CONFLICT, "User already exists");
                 }
         }
 
@@ -180,7 +181,8 @@ public class AuthenticationController {
                         @CookieValue(value = "refreshToken", required = false) String refreshToken) {
                
                 if (refreshToken == null || !jwtTokenUtil.validateJwtRefreshToken(refreshToken)) {
-                        return ResponseEntity.status(401).body(Map.of("error", "Refresh token invalid or missing"));
+                        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                                        "Refresh token invalid or missing");
                 }
 
                 UUID userId = jwtTokenUtil.getUserId(refreshToken);
@@ -189,13 +191,19 @@ public class AuthenticationController {
                 
                 if (user.isEmpty()) {
 
-                        return ResponseEntity.status(404).body(Map.of("error", "User not found"));
+                        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+                }
+                if (!tokenInvalidatorService.consumeRefreshToken(refreshToken)) {
+                        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                                        "Refresh token reused or revoked");
                 }
                 String newAccessToken = jwtTokenUtil.generateAccessTokenFromUserId(
                                 userId,
                                 user.get().getEmail(),
                                 user.get().getRoles().stream().toList());
-                return ResponseEntity.status(HttpStatus.OK).body(new RefreshResponse(newAccessToken, userId));
+                return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE,
+                        jwtTokenUtil.rotateRefreshCookie(user.get(), jwtTokenUtil.getRefreshFamily(refreshToken)).toString())
+                        .body(new RefreshResponse(newAccessToken, userId));
         }
 
         /**
@@ -211,7 +219,7 @@ public class AuthenticationController {
                 if (user.isPresent()) {
                         return ResponseEntity.ok(UserResponse.from(user.get()));
                 } else {
-                        return ResponseEntity.notFound().build();
+                        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
                 }
         }
 
@@ -273,7 +281,7 @@ public class AuthenticationController {
                         return ResponseEntity.ok(UserResponse.from(updatedWaiter));
                 } else {
                         logger.warn("User {} was not found", updatedUser.getEmail());
-                        return ResponseEntity.notFound().build();
+                        throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
                 }
         }
 }

@@ -79,8 +79,7 @@ public class JwtTokenUtil {
 
     public boolean validateJwtToken(String authToken) {
         try {
-            Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(authToken);
-            return true;
+            return !"refresh".equals(getClaims(authToken).get("type"));
         } catch (SecurityException e) {
             logger.error("Invalid JWT signature: {}", e.getMessage());
         } catch (UnsupportedJwtException | MalformedJwtException | SignatureException | ExpiredJwtException e) {
@@ -94,7 +93,8 @@ public class JwtTokenUtil {
     public boolean validateJwtRefreshToken(String refreshToken) {
         try {
             Claims claims = getClaims(refreshToken);
-            return "refresh".equals(claims.get("type"));
+            return "refresh".equals(claims.get("type")) && claims.getId() != null
+                    && claims.get("family", String.class) != null;
         } catch (JwtException | IllegalArgumentException e) {
             logger.error("Invalid JWT refresh token: {}", e.getMessage());
             return false;
@@ -117,7 +117,7 @@ public class JwtTokenUtil {
 
     private ResponseCookie buildRefreshCookie(String token) {
         return ResponseCookie.from("refreshToken", token)
-                .path("/user/refresh")
+                .path("/user")
                 .maxAge(refreshExpirationMs / 1000)
                 .httpOnly(true)
                 .secure(cookieSecure)
@@ -127,7 +127,7 @@ public class JwtTokenUtil {
 
     public ResponseCookie generateClearRefreshCookie() {
         return ResponseCookie.from("refreshToken", "")
-                .path("/user/refresh")
+                .path("/user")
                 .httpOnly(true)
                 .secure(cookieSecure)
                 .maxAge(0)
@@ -160,7 +160,29 @@ public String generateAccessTokenFromUserId(UUID userId, String email, List<Stri
     }
 
     public String generateRefreshTokenFromUserId(UUID userId, String email, List<String> authorities) {
+        return generateRefreshToken(userId, UUID.randomUUID().toString());
+    }
+
+    public ResponseCookie rotateRefreshCookie(RestaurantUser user, String family) {
+        return buildRefreshCookie(generateRefreshToken(user.getId(), family));
+    }
+
+    public String getRefreshFamily(String token) {
+        return getClaims(token).get("family", String.class);
+    }
+
+    public Date getExpiration(String token) {
+        return getClaims(token).getExpiration();
+    }
+
+    public Date getRefreshRevocationExpiry() {
+        return new Date(System.currentTimeMillis() + refreshExpirationMs);
+    }
+
+    private String generateRefreshToken(UUID userId, String family) {
         return Jwts.builder()
+            .setId(UUID.randomUUID().toString())
+            .claim("family", family)
             .setSubject(userId.toString())
             .setIssuedAt(new Date())
             .setExpiration(new Date((new Date()).getTime() + refreshExpirationMs))

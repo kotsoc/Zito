@@ -55,6 +55,66 @@ class AuthenticationIntegrationTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
+    @Autowired private com.konstantinos.zito.repositories.OrderRepository orderRepository;
+    @Autowired private com.konstantinos.zito.repositories.MenuItemRepository menuItemRepository;
+
+    @Test
+    void competingHttpEditsReturnOneSuccessAndOneConflict() throws Exception {
+        var admin = new com.konstantinos.zito.model.RestaurantUser("concurrency@example.com");
+        admin.addRole("ROLE_ADMIN");
+        admin.setPassword(passwordEncoder.encode("password123"));
+        userRepository.save(admin);
+        var login = new LoginRequest();
+        login.setEmail(admin.getEmail());
+        login.setPassword("password123");
+        var signedIn = restTemplate.postForEntity("/user/signin", login, LoginResponse.class);
+        var item = new com.konstantinos.zito.model.MenuItem();
+        item.setName("Concurrency fixture");
+        item.setGrossPrice(new java.math.BigDecimal("10.00"));
+        item.setTaxRate(java.math.BigDecimal.ZERO);
+        item = menuItemRepository.save(item);
+        var order = orderRepository.save(new com.konstantinos.zito.model.Order());
+        var request = new com.konstantinos.zito.model.dto.CreateOrderRequest();
+        request.setVersion(order.getVersion());
+        request.setCartId(java.util.UUID.randomUUID());
+        request.setOrderPointId("table-1");
+        request.setCartItems(java.util.List.of(new com.konstantinos.zito.model.dto.CartItemRequest(
+                item.getId(), 1, "", java.util.List.of(), 0)));
+        var headers = new HttpHeaders();
+        headers.setBearerAuth(signedIn.getBody().getAccessToken());
+        var entity = new HttpEntity<>(request, headers);
+        String path = "/api/v1/orders/waiter/" + order.getId();
+        var first = java.util.concurrent.CompletableFuture.supplyAsync(() ->
+                restTemplate.exchange(path, HttpMethod.PUT, entity, String.class));
+        var second = java.util.concurrent.CompletableFuture.supplyAsync(() ->
+                restTemplate.exchange(path, HttpMethod.PUT, entity, String.class));
+        var responses = java.util.List.of(first.get(20, java.util.concurrent.TimeUnit.SECONDS),
+                second.get(20, java.util.concurrent.TimeUnit.SECONDS));
+        assertThat(responses.stream().map(response -> response.getStatusCode().value()).toList())
+                .containsExactlyInAnyOrder(201, 409);
+        var conflict = responses.stream().filter(response -> response.getStatusCode().value() == 409).findFirst().orElseThrow();
+        assertThat(objectMapper.readTree(conflict.getBody()).path("code").asText()).isEqualTo("CONFLICT");
+        assertThat(objectMapper.readTree(conflict.getBody()).path("traceId").asText()).isNotBlank();
+    }
+
+    @Test
+    void exportedContractMatchesCurrentAuthAndCategoryRoutes() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity("/v3/api-docs", String.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        var spec = objectMapper.readTree(response.getBody());
+        assertThat(spec.path("openapi").asText()).startsWith("3.");
+        assertThat(spec.at("/paths/~1user~1signout/post").isMissingNode()).isFalse();
+        assertThat(spec.at("/paths/~1user~1signout/get").isMissingNode()).isTrue();
+        assertThat(spec.at("/paths/~1api~1v1~1categories~1by-name~1{name}/get/responses/200").isMissingNode()).isFalse();
+        assertThat(spec.at("/paths/~1api~1v1~1categories~1{id}/get/responses/200").isMissingNode()).isFalse();
+        assertThat(spec.at("/components/schemas/UserResponse/properties/password").isMissingNode()).isTrue();
+        assertThat(spec.at("/paths/~1user~1refresh/post/security/0/csrfHeader").isArray()).isTrue();
+        assertThat(spec.at("/components/schemas/OrderStatusRequest/required").toString()).contains("version");
+    }
+
     @BeforeEach
     void setup() {
         userRepository.deleteAll();
@@ -87,6 +147,7 @@ void fullAuthenticationLifecycle() {
 
     // 3. REFRESH TOKEN
     HttpHeaders refreshHeaders = new HttpHeaders();
+    refreshHeaders.set("X-CSRF-Protection", "1");
     refreshHeaders.add(HttpHeaders.COOKIE, cookieValue); // Send the cookie back
     HttpEntity<Void> refreshEntity = new HttpEntity<>(refreshHeaders);
 
@@ -95,6 +156,17 @@ void fullAuthenticationLifecycle() {
 
     assertThat(refreshResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(refreshResponse.getBody().getAccessToken()).isNotNull();
+    String rotatedCookie = refreshResponse.getHeaders().getFirst(HttpHeaders.SET_COOKIE).split(";")[0];
+    assertThat(rotatedCookie).isNotEqualTo(cookieValue);
+
+    ResponseEntity<String> replay = restTemplate.exchange(
+            "/user/refresh", HttpMethod.POST, refreshEntity, String.class);
+    assertThat(replay.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    HttpHeaders rotatedHeaders = new HttpHeaders();
+    rotatedHeaders.set("X-CSRF-Protection", "1");
+    rotatedHeaders.add(HttpHeaders.COOKIE, rotatedCookie);
+    assertThat(restTemplate.exchange("/user/refresh", HttpMethod.POST,
+            new HttpEntity<Void>(rotatedHeaders), String.class).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     
     // New Access Token for subsequent calls
     String newAccessToken = refreshResponse.getBody().getAccessToken();
@@ -115,6 +187,23 @@ void fullAuthenticationLifecycle() {
 
     // Still 403 because we are GUEST, but 403 proves the token was accepted!
     assertThat(updateResponse.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+
+    // A fresh sign-in creates a separate family; POST logout revokes both credentials.
+    ResponseEntity<LoginResponse> secondLogin = restTemplate.postForEntity("/user/signin", loginRequest, LoginResponse.class);
+    String logoutCookie = secondLogin.getHeaders().getFirst(HttpHeaders.SET_COOKIE).split(";")[0];
+    HttpHeaders logoutHeaders = new HttpHeaders();
+    logoutHeaders.setBearerAuth(secondLogin.getBody().getAccessToken());
+    logoutHeaders.set("X-CSRF-Protection", "1");
+    logoutHeaders.add(HttpHeaders.COOKIE, logoutCookie);
+    assertThat(restTemplate.exchange("/user/signout", HttpMethod.POST,
+            new HttpEntity<Void>(logoutHeaders), String.class).getStatusCode()).isEqualTo(HttpStatus.OK);
+    HttpHeaders afterLogout = new HttpHeaders();
+    afterLogout.set("X-CSRF-Protection", "1");
+    afterLogout.add(HttpHeaders.COOKIE, logoutCookie);
+    assertThat(restTemplate.exchange("/user/refresh", HttpMethod.POST,
+            new HttpEntity<Void>(afterLogout), String.class).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    assertThat(restTemplate.exchange("/user/me", HttpMethod.GET,
+            new HttpEntity<Void>(logoutHeaders), String.class).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
 }
 
     @Test

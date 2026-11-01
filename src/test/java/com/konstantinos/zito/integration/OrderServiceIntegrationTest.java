@@ -49,6 +49,57 @@ class OrderServiceIntegrationTest
     }
 
     @Test
+    void concurrentOrderSnapshotsCannotOverwriteEachOther() {
+        Order saved = orderRepository.save(new Order());
+        Order first = orderRepository.findById(saved.getId()).orElseThrow();
+        Order stale = orderRepository.findById(saved.getId()).orElseThrow();
+        first.setNotes("first update");
+        orderRepository.save(first);
+        stale.setNotes("stale update");
+        org.junit.jupiter.api.Assertions.assertThrows(
+                org.springframework.dao.OptimisticLockingFailureException.class,
+                () -> orderRepository.save(stale));
+        assertThat(orderRepository.findById(saved.getId()).orElseThrow().getNotes()).isEqualTo("first update");
+    }
+
+    @Test
+    void cancellationRetainsOrderAndReasonAndRejectsSettledOrders() {
+        Order saved = orderRepository.save(new Order());
+        UUID actor = UUID.randomUUID();
+        OrderResponse response = orderService.cancelOrder(saved.getId(), actor, saved.getVersion(), "customer request");
+        Order retained = orderRepository.findById(saved.getId()).orElseThrow();
+        assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELED);
+        assertThat(retained.getCancellationReason()).isEqualTo("customer request");
+        assertThat(retained.getCanceledBy()).isEqualTo(actor);
+        Order settled = new Order();
+        settled.setPaid(true);
+        settled = orderRepository.save(settled);
+        UUID id = settled.getId();
+        Long version = settled.getVersion();
+        var failure = org.junit.jupiter.api.Assertions.assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> orderService.cancelOrder(id, actor, version, "customer request"));
+        assertThat(failure.getStatusCode().value()).isEqualTo(409);
+        assertThat(orderRepository.findById(id).orElseThrow().isPaid()).isTrue();
+    }
+
+    @Test
+    void staleAndInvalidStatusUpdatesDoNotChangeOrder() {
+        Order saved = orderRepository.save(new Order());
+        var initialVersion = saved.getVersion();
+        OrderResponse confirmed = orderService.updateOrderStatus(saved.getId(), OrderStatus.CONFIRMED, initialVersion);
+        assertThat(confirmed.getVersion()).isGreaterThan(initialVersion);
+        var stale = org.junit.jupiter.api.Assertions.assertThrows(
+                org.springframework.web.server.ResponseStatusException.class,
+                () -> orderService.updateOrderStatus(saved.getId(), OrderStatus.PREPARING, initialVersion));
+        assertThat(stale.getStatusCode().value()).isEqualTo(409);
+        var invalid = org.junit.jupiter.api.Assertions.assertThrows(
+                org.springframework.web.server.ResponseStatusException.class,
+                () -> orderService.updateOrderStatus(saved.getId(), OrderStatus.COMPLETED, confirmed.getVersion()));
+        assertThat(invalid.getStatusCode().value()).isEqualTo(409);
+        assertThat(orderRepository.findById(saved.getId()).orElseThrow().getStatus()).isEqualTo(OrderStatus.CONFIRMED);
+    }
+
+    @Test
     void caseA_shouldCorrectlyExtractVATForMultipleRatesAfterDiscount() {
         // GIVEN: 3 items with 3 different EU rates (Net prices)
         String pizzaId = createEUItem("Pizza", "15.00", "10.0");

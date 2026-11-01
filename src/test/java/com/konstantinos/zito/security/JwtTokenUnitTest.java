@@ -59,6 +59,9 @@ class JwtTokenUtilTest {
         String token = jwtTokenUtil.generateRefreshTokenFromUserId(userId, "test@mail.com", List.of("ROLE_USER"));
 
         assertThat(jwtTokenUtil.validateJwtRefreshToken(token)).isTrue();
+        assertThat(jwtTokenUtil.validateJwtToken(token)).isFalse();
+        assertThat(jwtTokenUtil.generateRefreshTokenFromUserId(userId, "test@mail.com", List.of("ROLE_USER")))
+                .isNotEqualTo(token);
         
         // A regular access token should NOT be valid as a refresh token
         String accessToken = jwtTokenUtil.generateAccessTokenFromUserId(userId, "test@mail.com", List.of("ROLE_USER"));

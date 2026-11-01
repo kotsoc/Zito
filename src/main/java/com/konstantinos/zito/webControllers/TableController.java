@@ -46,7 +46,7 @@ public class TableController {
         if (res.isPresent()) {
             return ResponseEntity.ok(res.get());
         } else {
-            return ResponseEntity.notFound().build();
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, "Table not found");
         }
     }
 
@@ -77,12 +77,12 @@ public class TableController {
         Optional<Table> Table = tableRepository.findById(id);
         if (Table.isPresent()) {
             if (TableDetails.getId() != id) {
-                return ResponseEntity.badRequest().build();
+                throw new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST, "Table ID mismatch");
             }
             final Table updatedTable = tableRepository.save(TableDetails);
             return ResponseEntity.ok(updatedTable);
         } else {
-            return ResponseEntity.notFound().build();
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, "Table not found");
         }
     }
 
@@ -93,7 +93,7 @@ public class TableController {
             tableRepository.deleteById(id);
             return ResponseEntity.noContent().build();
         } else {
-            return ResponseEntity.notFound().build();
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, "Table not found");
         }
     }
 
@@ -112,13 +112,8 @@ public class TableController {
      */
     @PostMapping("/layout")
     public ResponseEntity<TableLayout> addTableToLayout(@Valid @RequestBody TableLayout tableLayout) {
-        try{
             TableLayout savedTable = tableLayoutRepository.save(tableLayout);
             return ResponseEntity.status(HttpStatus.CREATED).body(savedTable);
-        } catch (Exception e) {
-            logger.error("error inserting TableLayout", e);
-            return ResponseEntity.badRequest().body(new TableLayout());
-        }
     }
 
     
@@ -129,7 +124,7 @@ public class TableController {
             tableLayoutRepository.deleteById(id);
             return ResponseEntity.noContent().build();
         } else {
-            return ResponseEntity.notFound().build();
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, "Table layout not found");
         }
     }
 

@@ -5,7 +5,8 @@ public enum OrderStatus {
     CONFIRMED (1),
     PREPARING (2),
     READY (3),
-    COMPLETED (4);
+    COMPLETED (4),
+    CANCELED (5);
 
     private final int orderStatusPrecedence;
 

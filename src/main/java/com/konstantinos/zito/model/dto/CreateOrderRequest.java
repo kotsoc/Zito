@@ -18,6 +18,8 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 public class CreateOrderRequest {
+    @jakarta.validation.constraints.PositiveOrZero
+    Long version;
     @NotNull
     UUID cartId; // reference to the shopping cart FE generated
 

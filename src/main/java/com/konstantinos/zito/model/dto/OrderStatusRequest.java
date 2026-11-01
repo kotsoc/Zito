@@ -12,5 +12,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class OrderStatusRequest {
     @NotNull
+    @jakarta.validation.constraints.PositiveOrZero
+    Long version;
+    @NotNull
     OrderStatus status;
 }

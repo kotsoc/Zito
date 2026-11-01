@@ -43,12 +43,8 @@ public class MenuItemController {
      * Get menu item by name
      */
     @GetMapping("/{id}")
-    public ResponseEntity<MenuItem> getMenuItemByName(@PathVariable String id) {
-        try {
+    public ResponseEntity<MenuItem> getMenuItemByName(@PathVariable String id) throws java.util.concurrent.ExecutionException {
             return ResponseEntity.ok(menuItemService.findItem(id));
-        } catch (Exception e) {
-            return ResponseEntity.notFound().build();
-        }
     }
 
     /*
@@ -69,11 +65,7 @@ public class MenuItemController {
      */
     @PutMapping("/{name}")
     public ResponseEntity<MenuItem> UpdateMenuItem(@PathVariable String name, @RequestBody MenuItem item) {
-        try {
             return ResponseEntity.ok(menuItemService.UpdateItem(name, item));
-        } catch (Exception e) {
-            return ResponseEntity.notFound().build();
-        }
     }
 
     /*
