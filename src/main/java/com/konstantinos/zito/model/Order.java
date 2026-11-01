@@ -39,6 +39,7 @@ public class Order {
     private String orderPointId; // table, bar, takeaway, etc.
     private UUID waiterId; // Only for orders created by waiters/users
     private UUID cartId; // Only for guest orders
+    private String guestCredentialHash;
 
     private String guestEmail; //optional
     private String guestPhone; //optional

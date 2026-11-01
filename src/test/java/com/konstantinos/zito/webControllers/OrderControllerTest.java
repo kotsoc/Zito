@@ -50,10 +50,10 @@ class OrderControllerTest {
         UUID cartId = UUID.randomUUID();
         String guestEmail = "guest@example.com";
         OrderResponse orderResponse = new OrderResponse();
-        when(orderService.getGuestOrder(eq(orderId), eq(cartId), eq(Optional.of(guestEmail))))
+        when(orderService.getGuestOrder(eq(orderId), eq(guestEmail)))
                 .thenReturn(Optional.of(orderResponse));
 
-        ResponseEntity<OrderResponse> response = orderController.getOrder(orderId, cartId, guestEmail);
+        ResponseEntity<OrderResponse> response = orderController.getOrder(orderId, guestEmail);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(orderResponse, response.getBody());
@@ -64,10 +64,10 @@ class OrderControllerTest {
         UUID orderId = UUID.randomUUID();
         UUID cartId = UUID.randomUUID();
         String guestEmail = "guest@example.com";
-        when(orderService.getGuestOrder(eq(orderId), eq(cartId), eq(Optional.of(guestEmail))))
+        when(orderService.getGuestOrder(eq(orderId), eq(guestEmail)))
                 .thenReturn(Optional.empty());
 
-        ResponseEntity<OrderResponse> response = orderController.getOrder(orderId, cartId, guestEmail);
+        ResponseEntity<OrderResponse> response = orderController.getOrder(orderId, guestEmail);
 
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         assertNull(response.getBody());

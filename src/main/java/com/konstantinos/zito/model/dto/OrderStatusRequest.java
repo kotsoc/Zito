@@ -2,7 +2,7 @@ package com.konstantinos.zito.model.dto;
 
 import com.konstantinos.zito.model.OrderStatus;
 
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -11,6 +11,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class OrderStatusRequest {
-    @NotBlank
+    @NotNull
     OrderStatus status;
 }

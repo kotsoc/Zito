@@ -58,6 +58,10 @@ public class OrderService {
         validateDiscounts(request, false);
 
         Order order = new Order();
+        byte[] credentialBytes = new byte[32];
+        new java.security.SecureRandom().nextBytes(credentialBytes);
+        String credential = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(credentialBytes);
+        order.setGuestCredentialHash(hashGuestCredential(credential));
         order.setOrderPointId(request.getOrderPointId());
         order.setCartId(request.getCartId());
         order.setCreated_At(new Date());
@@ -80,14 +84,28 @@ public class OrderService {
         order.setTaxTotals(orderTotals.getTaxTotalsByRate());
         order.setGrossTotal(orderTotals.getGrossTotal());
 
-        return mapToResponse(orderRepository.save(order));
+        OrderResponse response = mapToResponse(orderRepository.save(order));
+        response.setGuestCredential(credential);
+        return response;
     }
 
-    public Optional<OrderResponse> getGuestOrder(UUID orderId, UUID cartId, Optional<String> guestEmail) {
-        // Try to find by orderId and cartId first
-        return orderRepository.findById(orderId).filter(order -> order.getCartId().equals(cartId)
-                || guestEmail.map(email -> email.equals(order.getGuestEmail())).orElse(false))
+    public Optional<OrderResponse> getGuestOrder(UUID orderId, String credential) {
+        if (credential == null || credential.isBlank()) return Optional.empty();
+        String hash = hashGuestCredential(credential);
+        return orderRepository.findById(orderId).filter(order -> order.getGuestCredentialHash() != null
+                && java.security.MessageDigest.isEqual(order.getGuestCredentialHash().getBytes(java.nio.charset.StandardCharsets.US_ASCII),
+                        hash.getBytes(java.nio.charset.StandardCharsets.US_ASCII)))
                 .map(this::mapToResponse);
+    }
+
+    private String hashGuestCredential(String credential) {
+        try {
+            byte[] hash = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(credential.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(hash);
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        }
     }
 
     

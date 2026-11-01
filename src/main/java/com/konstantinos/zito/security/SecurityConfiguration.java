@@ -76,7 +76,6 @@ public class SecurityConfiguration {
             .authenticationEntryPoint(authEntryPoint))
             .authorizeHttpRequests(authz -> authz
                 .requestMatchers(
-                    "/actuator/**",
                     "/*.png",
                     "/index.html",
                     "/manifest.json",
@@ -92,6 +91,7 @@ public class SecurityConfiguration {
                     "/v3/api-docs*/**",
                     "/ws/**"
                 ).permitAll()
+                .requestMatchers("/actuator/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/v1/menu-items", "/api/v1/categories", "/api/v1/orders/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/orders").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/menu-items/**", "/api/v1/categories/**", "/api/v1/table/**").hasAnyRole("ADMIN", "MANAGER")
@@ -121,7 +121,7 @@ public class SecurityConfiguration {
         // config.setAllowCredentials(true);
         config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(Arrays.asList("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
-        config.setAllowedHeaders(Arrays.asList("Authorization","Cache-Control","Content-Type","refreshToken"));
+        config.setAllowedHeaders(Arrays.asList("Authorization","Cache-Control","Content-Type","refreshToken", "X-Order-Credential"));
         config.setAllowCredentials(true);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

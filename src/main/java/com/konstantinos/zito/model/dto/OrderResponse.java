@@ -11,10 +11,13 @@ import com.konstantinos.zito.model.TaxEntry;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 @Data
 @NoArgsConstructor
 public class OrderResponse {
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String guestCredential;
     private UUID id;
     private UUID cartId;
     private String orderPointId; // e.g. table number or reservation ID

@@ -95,6 +95,11 @@ public class MenuService {
             oldItem.setGrossPrice(menuItem.getGrossPrice());
             oldItem.setNetPrice(menuItem.getNetPrice());
             oldItem.setCategoryId(menuItem.getCategoryId());
+            oldItem.setCategoryName(menuItem.getCategoryName());
+            oldItem.setAvailable(menuItem.getAvailable());
+            oldItem.setTaxRate(menuItem.getTaxRate());
+            oldItem.setItemModifiers(menuItem.getItemModifiers());
+            oldItem.setImageUrl(menuItem.getImageUrl());
             
             MenuItem updated = menuItemRepository.save(oldItem);
             menuItemCache.put(id, updated);

@@ -39,7 +39,7 @@ public class CategoryController {
     /*
      * Get category by name
      */
-    @GetMapping("/{name}")
+    @GetMapping("/by-name/{name}")
     public ResponseEntity<Category> getCategoryByName(@PathVariable String name) {
         return menuItemService.findCategory(name)
             .map(ResponseEntity::ok)

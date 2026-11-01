@@ -332,26 +332,32 @@ class OrderServiceTest {
         assertEquals(2, savedOrder.getOrderItems().size());
 
         assertEquals(savedOrder.getId(), response.getId());
+        assertNotNull(response.getGuestCredential());
+        assertNotEquals(response.getGuestCredential(), savedOrder.getGuestCredentialHash());
+        when(orderRepository.findById(savedOrder.getId())).thenReturn(Optional.of(savedOrder));
+        assertTrue(orderService.getGuestOrder(savedOrder.getId(), response.getGuestCredential()).isPresent());
+        assertTrue(orderService.getGuestOrder(savedOrder.getId(), "wrong-credential").isEmpty());
     }
 
     @Test
-    void testGetGuestOrder_FoundByCartId() {
+    void testGetGuestOrder_FoundByCredential() throws Exception {
         UUID cartId = UUID.randomUUID();
         Order order = new Order();
         order.setCartId(cartId);
+        order.setGuestCredentialHash(java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest("secret".getBytes(java.nio.charset.StandardCharsets.UTF_8))));
         order.setGuestEmail("guest@example.com");
         order.setOrderItems(List.of(cartItem1));
 
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
-        Optional<OrderResponse> result = orderService.getGuestOrder(order.getId(), cartId, Optional.empty());
+        Optional<OrderResponse> result = orderService.getGuestOrder(order.getId(), "secret");
 
         assertTrue(result.isPresent());
         assertEquals(order.getId(), result.get().getId());
     }
 
     @Test
-    void testGetGuestOrder_FoundByGuestEmail() {
+    void testGetGuestOrder_EmailDoesNotGrantAccess() {
         UUID cartId = UUID.randomUUID();
         Order order = new Order();
         order.setCartId(cartId);
@@ -359,11 +365,9 @@ class OrderServiceTest {
         order.setOrderItems(List.of(cartItem1));
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
-        Optional<OrderResponse> result = orderService.getGuestOrder(order.getId(), cartId,
-                Optional.of("guest@example.com"));
+        Optional<OrderResponse> result = orderService.getGuestOrder(order.getId(), "guest@example.com");
 
-        assertTrue(result.isPresent());
-        assertEquals(order.getId(), result.get().getId());
+        assertFalse(result.isPresent());
     }
 
     @Test
@@ -372,7 +376,7 @@ class OrderServiceTest {
         UUID cartId = UUID.randomUUID();
         when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
 
-        Optional<OrderResponse> result = orderService.getGuestOrder(orderId, cartId, Optional.empty());
+        Optional<OrderResponse> result = orderService.getGuestOrder(orderId, "secret");
 
         assertFalse(result.isPresent());
     }

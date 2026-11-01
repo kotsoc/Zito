@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.konstantinos.zito.model.OrderStatus;
@@ -51,9 +52,9 @@ public class OrderController {
      */
     @GetMapping("/{orderId}")
     public ResponseEntity<OrderResponse> getOrder(@PathVariable("orderId") UUID orderId,
-            @RequestParam UUID cartId, @RequestParam(required = false) String guestEmail) {
+            @RequestHeader(value = "X-Order-Credential", required = false) String credential) {
                 
-            var order = orderService.getGuestOrder(orderId, cartId, Optional.ofNullable(guestEmail));
+            var order = orderService.getGuestOrder(orderId, credential);
             if (order.isPresent()) {
                 return ResponseEntity.ok().body(order.get());
             } else {
@@ -82,7 +83,7 @@ public class OrderController {
     @PreAuthorize("hasAnyRole('WAITER', 'ADMIN', 'MANAGER', 'KITCHEN')")
     public ResponseEntity<OrderResponse> updateOrderStatus(
             @PathVariable("orderId") UUID orderId,
-            @RequestBody OrderStatusRequest status) {
+            @Valid @RequestBody OrderStatusRequest status) {
 
         try {
             OrderResponse updatedOrder = orderService.updateOrderStatus(orderId, status.getStatus());

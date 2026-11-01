@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.konstantinos.zito.model.Role;
 import com.konstantinos.zito.model.RestaurantUser;
 import com.konstantinos.zito.model.dto.UpdateUserRequest;
+import com.konstantinos.zito.model.dto.UserResponse;
 import com.konstantinos.zito.model.dto.LoginRequest;
 import com.konstantinos.zito.model.dto.LoginResponse;
 import com.konstantinos.zito.model.dto.RefreshResponse;
@@ -151,7 +152,7 @@ public class AuthenticationController {
          * @throws javax.validation.ValidationException
          */
         @PostMapping("/signup")
-        public ResponseEntity<RestaurantUser> createRestaurantUser(@Valid @RequestBody RegisterRequest userRequest) {
+        public ResponseEntity<UserResponse> createRestaurantUser(@Valid @RequestBody RegisterRequest userRequest) {
                 RestaurantUser newUser = new RestaurantUser();
                 newUser.setEmail(userRequest.getEmail());
                 newUser.setId(java.util.UUID.randomUUID());
@@ -161,7 +162,7 @@ public class AuthenticationController {
                 try {
                         userRepository.save(newUser);
                         logger.info("User {} created successfully", newUser.getEmail());
-                        return ResponseEntity.status(HttpStatus.CREATED).body(newUser);
+                        return ResponseEntity.status(HttpStatus.CREATED).body(UserResponse.from(newUser));
                 } catch (Exception e) {
                         logger.warn("Could not create User {} : duplicate Username", newUser.getEmail());
                         return ResponseEntity.status(HttpStatus.CONFLICT).body(null);
@@ -205,10 +206,10 @@ public class AuthenticationController {
          * 
          */
         @GetMapping("/me")
-        public ResponseEntity<RestaurantUser> me(@AuthenticationPrincipal RestaurantUserDetails currentUser) {
+        public ResponseEntity<UserResponse> me(@AuthenticationPrincipal RestaurantUserDetails currentUser) {
                 var user = userRepository.findById(currentUser.getId());
                 if (user.isPresent()) {
-                        return ResponseEntity.ok(user.get());
+                        return ResponseEntity.ok(UserResponse.from(user.get()));
                 } else {
                         return ResponseEntity.notFound().build();
                 }
@@ -225,9 +226,9 @@ public class AuthenticationController {
          */
         @GetMapping("/all")
         @PreAuthorize("hasRole('ADMIN')")
-        public ResponseEntity<List<RestaurantUser>> getAllUsers() {
+        public ResponseEntity<List<UserResponse>> getAllUsers() {
                 List<RestaurantUser> users = userRepository.findAll();
-                return ResponseEntity.ok(users);
+                return ResponseEntity.ok(users.stream().map(UserResponse::from).toList());
         }
 
         /**
@@ -259,7 +260,7 @@ public class AuthenticationController {
          */
         @PutMapping("/update")
         @PreAuthorize("hasRole('ADMIN')")
-        public ResponseEntity<RestaurantUser> updateWaiter(@Valid @RequestBody UpdateUserRequest updatedUser) {
+        public ResponseEntity<UserResponse> updateWaiter(@Valid @RequestBody UpdateUserRequest updatedUser) {
                 Optional<RestaurantUser> existingUser = userRepository.findByEmail(updatedUser.getEmail());
                 if (existingUser.isPresent()) {
                         final RestaurantUser updatedWaiter = existingUser.get();
@@ -269,7 +270,7 @@ public class AuthenticationController {
 
                         userRepository.save(existingUser.get());
                         logger.info("User {} updated successfully", updatedUser.getEmail());
-                        return ResponseEntity.ok(updatedWaiter);
+                        return ResponseEntity.ok(UserResponse.from(updatedWaiter));
                 } else {
                         logger.warn("User {} was not found", updatedUser.getEmail());
                         return ResponseEntity.notFound().build();

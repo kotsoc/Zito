@@ -76,6 +76,9 @@ public class TableController {
             @Valid @RequestBody Table TableDetails) {
         Optional<Table> Table = tableRepository.findById(id);
         if (Table.isPresent()) {
+            if (TableDetails.getId() != id) {
+                return ResponseEntity.badRequest().build();
+            }
             final Table updatedTable = tableRepository.save(TableDetails);
             return ResponseEntity.ok(updatedTable);
         } else {

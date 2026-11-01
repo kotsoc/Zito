@@ -166,6 +166,8 @@ class AuthenticationControllerWebMvcTest {
                                 .content(objectMapper.writeValueAsString(request)))
                                 .andExpect(status().isCreated())
                                 .andExpect(jsonPath("$.email").value("test@mail.com"))
+                                .andExpect(jsonPath("$.password").doesNotExist())
+                                .andExpect(jsonPath("$.providerId").doesNotExist())
                                 .andExpect(jsonPath("$.roles[0]").value("ROLE_GUEST"));
         }
 
@@ -294,6 +296,7 @@ class AuthenticationControllerWebMvcTest {
                                 .content(objectMapper.writeValueAsString(existing)))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.email").value("waiter@mail.com"))
+                                .andExpect(jsonPath("$.password").doesNotExist())
                                 .andExpect(jsonPath("$.roles[0]").value("ROLE_WAITER"));
         }
 }

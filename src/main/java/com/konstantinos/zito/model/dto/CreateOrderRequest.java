@@ -11,6 +11,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.Valid;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -23,8 +24,9 @@ public class CreateOrderRequest {
     @NotBlank
     String orderPointId; // e.g. table number or reservation ID
 
+    @NotNull
     @Size(min = 1, message = "Cart must have at least one item")
-    List<CartItemRequest> cartItems;
+    List<@NotNull @Valid CartItemRequest> cartItems;
 
     @Email
     @Nullable
