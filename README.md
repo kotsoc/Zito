@@ -6,8 +6,7 @@ This is an ordering foundation, not yet a payment-ready restaurant backend. Paym
 
 ## Documentation
 
-- [Current API reference](API.md): endpoints, authentication, examples, wire formats and limitations.
-- [Required gaps and implementation plan](RESTAURANT_API_PLAN.md): Greece/EUR first, configurable taxes and provider-independent payments.
+- [Current API reference](docs/API.md): endpoints, authentication, examples, wire formats and limitations.
 - Generated OpenAPI: `/v3/api-docs` (JSON), `/v3/api-docs.yaml` (YAML).
 - Swagger UI: `/swagger-ui/index.html`. The usual `/swagger-ui.html` entry may require authentication because the allowlist includes only `/swagger-ui/**`.
 
