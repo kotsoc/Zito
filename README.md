@@ -1,30 +1,38 @@
 # Zito Restaurant Ordering API
-This is a RESTful API for managing a restaurant, built using Spring Boot and MongoDB.
 
-## Requirements
-- Java 11+
-- MongoDB 4+
+Java 21 / Spring Boot 3.5.9 / Maven / MongoDB backend with guest/staff ordering, menu/category/table management, JWT and Google OAuth2, percentage discounts, VAT calculations and STOMP updates.
 
-## Installation
-1. Clone the repository: `git clone https://github.com/kotsoc/Zito.git`
-2. Navigate to the project directory: `cd zito`
-3. Build the project: `mvn clean package`
-4. Run Mongodb replacing the path to the one that corresponds to your db: `mongod -dbpath ~/data/db`
-4. Start the server: `java -jar target/zito-0.0.2-SNAPSHOT.jar`
+This is an ordering foundation, not yet a payment-ready restaurant backend. Payments, refunds and fiscal receipts are absent; authorization, pricing and delivery gaps are listed in the implementation plan.
 
-By default, the server will listen on port 8080. You can change this by setting the `server.port` property in `application.properties`.
+## Documentation
 
-## Running from a container
-1. Update the version number
-2. run `mvn compile jib:build`
-3.
+- [Current API reference](API.md): endpoints, authentication, examples, wire formats and limitations.
+- [Required gaps and implementation plan](RESTAURANT_API_PLAN.md): Greece/EUR first, configurable taxes and provider-independent payments.
+- Generated OpenAPI: `/v3/api-docs` (JSON), `/v3/api-docs.yaml` (YAML).
+- Swagger UI: `/swagger-ui/index.html`. The usual `/swagger-ui.html` entry may require authentication because the allowlist includes only `/swagger-ui/**`.
 
-## Usage
-The API exposes several endpoints for managing menu items, orders, waiters, and tables. See the Swagger UI documentation at `http://localhost:8080/swagger-ui.html` for more information.
+The contract is generated from controllers/models and enriched in `OpenApi30Config`. It describes implemented behavior, including the broken category lookup. Proposed endpoints are only in the plan; there is no separately maintained static specification.
 
-## Configuration
-You can configure the database connection by setting the `spring.data.mongodb.uri` property in `application.properties`. Other properties, such as the database name, can be set as well.
+## Build and run
 
+Install JDK 21, use Maven or the included wrapper (`.\mvnw.cmd` on Windows, `./mvnw` on Unix), and run MongoDB. Docker is required for Testcontainers integration tests.
+
+```powershell
+.\mvnw.cmd clean package
+.\mvnw.cmd test
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=dev"
+```
+
+Alternatively run `java -jar target/zito-0.0.2-SNAPSHOT.jar --spring.profiles.active=dev`. Configure the port externally; Spring Boot defaults to 8080 when no override is supplied.
+
+Supply MongoDB, JWT signing key/lifetimes, CORS origins, Google OAuth2 client settings, `module-name` and `api-version` through your local profile or deployment configuration. `application.properties`, `application-dev.properties` and `application-test.properties` are ignored; do not commit credentials. Use profiles `dev`, `test` or `docker`; only docker properties are tracked. The separate `local-dev` profile uses development HTTP Basic and is not a production profile.
+
+Builds with tests need Docker; `-DskipTests` skips test execution. Jib publishing is configured in `pom.xml`; review the image destination before running `jib:build`.
+
+## Verification
+
+Review date: 2026-11-01. See the plan for verification limitations and release gates. The pinned springdoc 2.1.0 predates the version family documented for Boot 3.5; validate and upgrade it before relying on a production spec export.
 
 ## License
-This project is licensed under the AGPL License. See LICENSE for details.
+
+See LICENSE for the project's AGPL license.
